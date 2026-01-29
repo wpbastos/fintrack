@@ -1,0 +1,149 @@
+// Prisma schema for FinTrack
+// 3 core tables: ImportLog, StagingTransactions, Transactions
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Import Log (audit trail) - tracks every import batch
+model ImportLog {
+  id                   Int       @id @default(autoincrement()) @map("ImportID")
+  fileName             String    @map("FileName")
+  filePath             String?   @map("FilePath")
+  sourceType           String    @map("SourceType") // Statement, Receipt, Payslip, Manual
+  accountId            Int?      @map("AccountID") // FK removed for now
+  periodStart          DateTime? @map("PeriodStart")
+  periodEnd            DateTime? @map("PeriodEnd")
+  openingBalance       Float?    @map("OpeningBalance")
+  closingBalance       Float?    @map("ClosingBalance")
+  transactionCount     Int       @default(0) @map("TransactionCount")
+  addedCount           Int       @default(0) @map("AddedCount")
+  matchedCount         Int       @default(0) @map("MatchedCount")
+  skippedCount         Int       @default(0) @map("SkippedCount")
+  unknownCount         Int       @default(0) @map("UnknownCount")
+  contentHash          String?   @unique @map("ContentHash")
+  statementFingerprint String?   @unique @map("StatementFingerprint") // {AccountID}|{PeriodEnd}|{ClosingBalance}|{TxnCount}
+  status               String    @default("Pending") @map("Status") // Pending, Processing, Completed, Failed, Partial
+  processedAt          DateTime? @map("ProcessedAt")
+  archivedPath         String?   @map("ArchivedPath")
+  notes                String?   @map("Notes")
+  createdAt            DateTime  @default(now()) @map("CreatedAt")
+
+  // Relations
+  stagingTransactions StagingTransaction[]
+  transactions        Transaction[]
+
+  @@map("ImportLog")
+}
+
+// Staging table for batch imports (temporary holding)
+// Transactions land here first, get reviewed, then move to Transactions
+model StagingTransaction {
+  id                   Int       @id @default(autoincrement()) @map("StagingID")
+  importBatchId        String    @map("ImportBatchID") // Groups transactions from same import
+  rawDate              String?   @map("RawDate") // Date as read from statement (unparsed)
+  rawDescription       String?   @map("RawDescription") // Description as read from statement
+  rawAmount            Float?    @map("RawAmount") // Amount as read (NEGATIVE=expense, POSITIVE=income)
+  accountId            Int?      @map("AccountID") // FK removed for now
+  sourceFile           String?   @map("SourceFile") // Original filename
+
+  // Resolved after batch matching:
+  resolvedDate         DateTime? @map("ResolvedDate") // Parsed/cleaned date
+  resolvedMerchantId   Int?      @map("ResolvedMerchantID")
+  resolvedMerchant     Merchant? @relation(fields: [resolvedMerchantId], references: [id])
+  resolvedCategoryId   Int?      @map("ResolvedCategoryID") // FK removed for now
+  resolvedEmployerId   Int?      @map("ResolvedEmployerID") // FK removed for now
+  resolvedCardholderId Int?      @map("ResolvedCardholderID") // FK removed for now
+
+  // Status: pending, matched, unknown, imported, skipped
+  status               String    @default("pending") @map("Status")
+  matchConfidence      Float?    @map("MatchConfidence") // 0.0-1.0
+  notes                String?   @map("Notes")
+  createdAt            DateTime  @default(now()) @map("CreatedAt")
+
+  // Relation to ImportLog
+  importLogId          Int?      @map("ImportLogID")
+  importLog            ImportLog? @relation(fields: [importLogId], references: [id])
+
+  @@map("StagingTransactions")
+}
+
+// Main Transactions table
+// Central table for all financial transactions (actual and predicted)
+model Transaction {
+  id                  Int       @id @default(autoincrement()) @map("TransactionID")
+  date                DateTime  @map("Date") // Transaction date
+  description         String    @map("Description") // Clean/normalized description
+  originalDescription String?   @map("OriginalDescription") // Raw from bank statement
+  amount              Float     @map("Amount") // POSITIVE=income, NEGATIVE=expense
+  accountId           Int?      @map("AccountID") // FK removed for now
+  categoryId          Int?      @map("CategoryID") // FK removed for now
+  merchantId          Int?      @map("MerchantID")
+  merchant            Merchant? @relation(fields: [merchantId], references: [id])
+  cardholderId        Int?      @map("CardholderID") // FK removed for now
+  employerId          Int?      @map("EmployerID") // FK removed for now
+
+  // Import reference (nullable for manual entries)
+  importId            Int?      @map("ImportID")
+  importLog           ImportLog? @relation(fields: [importId], references: [id])
+
+  // Flags
+  reconciled          Boolean   @default(false) @map("Reconciled")
+  isDuplicate         Boolean   @default(false) @map("IsDuplicate")
+  isPredicted         Boolean   @default(false) @map("IsPredicted")
+  isRecurring         Boolean   @default(false) @map("IsRecurring")
+  recurringId         Int?      @map("RecurringID") // FK removed for now
+  hasAllocations      Boolean   @default(false) @map("HasAllocations")
+
+  notes               String?   @map("Notes")
+  createdAt           DateTime  @default(now()) @map("CreatedAt")
+  updatedAt           DateTime  @updatedAt @map("UpdatedAt")
+
+  @@map("Transactions")
+}
+
+// Merchants (master data - one row per actual merchant)
+// Stores where money is spent, with pattern matching via MerchantPatterns
+model Merchant {
+  id                   Int       @id @default(autoincrement()) @map("MerchantID")
+  merchantName         String    @unique @map("MerchantName") // Clean display name (e.g., "Amazon", "Costco")
+  defaultCategoryId    Int?      @map("DefaultCategoryID") // Auto-assign this category
+  defaultCardholderId  Int?      @map("DefaultCardholderID") // Who usually shops here
+  defaultAccountId     Int?      @map("DefaultAccountID") // Which card usually used
+  merchantType         String?   @map("MerchantType") // Classification (e.g., "Grocery", "Restaurant", "Subscription")
+  website              String?   @map("Website")
+  hasAlternative       Boolean   @default(false) @map("HasAlternative") // cheaper alternative exists
+  alternativeName      String?   @map("AlternativeName") // Suggested alternative
+  alternativeSavings   Float?    @map("AlternativeSavings") // Estimated savings per transaction
+  isImpulseProne       Boolean   @default(false) @map("IsImpulseProne") // warn about impulse purchases
+  isActive             Boolean   @default(true) @map("IsActive")
+  notes                String?   @map("Notes")
+  createdAt            DateTime  @default(now()) @map("CreatedAt")
+  updatedAt            DateTime  @updatedAt @map("UpdatedAt")
+
+  // Relations
+  patterns             MerchantPattern[]
+  stagingTransactions  StagingTransaction[]
+  transactions         Transaction[]
+
+  @@map("Merchants")
+}
+
+// Merchant Patterns (multiple patterns can map to one merchant)
+// This normalizes the pattern matching - no more duplicate merchant data
+model MerchantPattern {
+  id         Int      @id @default(autoincrement()) @map("PatternID")
+  merchantId Int      @map("MerchantID")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  pattern    String   @unique @map("Pattern") // Pattern to match in descriptions
+  priority   Int      @default(0) @map("Priority") // Higher priority wins when multiple patterns match
+  notes      String?  @map("Notes")
+  createdAt  DateTime @default(now()) @map("CreatedAt")
+
+  @@map("MerchantPatterns")
+}

@@ -1,0 +1,73 @@
+{
+  "statement": {
+    "accountId": 1,
+    "periodStart": "2024-01-01",
+    "periodEnd": "2024-01-31",
+    "openingBalance": 5000.00,
+    "closingBalance": 4235.47,
+    "sourceFile": "2024-01_TD_Chequing.pdf",
+    "sourceType": "Statement"
+  },
+  "transactions": [
+    {
+      "date": "2024-01-03",
+      "description": "AMAZON.CA*1A2B3C VANCOUVER BC",
+      "amount": -45.99
+    },
+    {
+      "date": "2024-01-05",
+      "description": "COSTCO WHOLESALE #123 BURNABY BC",
+      "amount": -234.56
+    },
+    {
+      "date": "2024-01-10",
+      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "amount": 2500.00
+    },
+    {
+      "date": "2024-01-12",
+      "description": "NETFLIX.COM",
+      "amount": -22.99
+    },
+    {
+      "date": "2024-01-15",
+      "description": "SHELL OIL 0012345 VANCOUVER BC",
+      "amount": -78.50
+    },
+    {
+      "date": "2024-01-18",
+      "description": "TRANSFER TO SAVINGS",
+      "amount": -500.00
+    },
+    {
+      "date": "2024-01-20",
+      "description": "STARBUCKS #12345 VANCOUVER",
+      "amount": -8.75
+    },
+    {
+      "date": "2024-01-22",
+      "description": "UBER* TRIP HELP.UBER.COM",
+      "amount": -32.40
+    },
+    {
+      "date": "2024-01-25",
+      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "amount": 2500.00
+    },
+    {
+      "date": "2024-01-28",
+      "description": "HYDRO BILL PAYMENT",
+      "amount": -156.78
+    },
+    {
+      "date": "2024-01-30",
+      "description": "GROCERY STORE #456 VANCOUVER",
+      "amount": -89.56
+    },
+    {
+      "date": "2024-01-31",
+      "description": "RENT PAYMENT - E-TRANSFER",
+      "amount": -1595.00
+    }
+  ]
+}
