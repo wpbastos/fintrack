@@ -20,6 +20,13 @@ export function BudgetCell({ categoryId, initialBudget, readOnly = false }: Budg
   const [displayValue, setDisplayValue] = useState(initialBudget);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
   if (readOnly) {
     return (
       <span className="block w-full text-right font-mono text-muted-foreground">
@@ -27,13 +34,6 @@ export function BudgetCell({ categoryId, initialBudget, readOnly = false }: Budg
       </span>
     );
   }
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
 
   const handleSave = async () => {
     setIsEditing(false);

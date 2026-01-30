@@ -10,6 +10,7 @@ import {
   History,
   Store,
   Tags,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -57,14 +58,19 @@ const navigation = [
 
 const setup = [
   {
-    title: "Categories",
-    url: "/categories",
-    icon: Tags,
+    title: "Accounts",
+    url: "/accounts",
+    icon: CreditCard,
   },
   {
     title: "Merchants",
     url: "/merchants",
     icon: Store,
+  },
+  {
+    title: "Categories",
+    url: "/categories",
+    icon: Tags,
   },
 ];
 

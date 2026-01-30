@@ -16,6 +16,7 @@ import { StatusToggle } from "./status-toggle";
 import { StatusFilter } from "./status-filter";
 import { AddChildButton } from "./add-child-button";
 import { ChildActions } from "./child-actions";
+import { CategoryActions } from "./category-actions";
 import { NotesCell } from "./notes-cell";
 import { GroupActions } from "./group-actions";
 
@@ -208,18 +209,11 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-medium">{category.categoryName}</span>
-                                <NotesCell
-                                  categoryId={category.id}
-                                  initialNotes={category.notes}
-                                />
+                                <NotesCell notes={category.notes} />
                               </div>
                             </TableCell>
                             <TableCell>
-                              <NecessityCell
-                                categoryId={category.id}
-                                initialValue={category.necessityLevel}
-                                readOnly={group.groupType === "Income"}
-                              />
+                              <NecessityCell value={category.necessityLevel} />
                             </TableCell>
                             <TableCell>
                               {group.groupType !== "Income" && (
@@ -242,10 +236,20 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                               />
                             </TableCell>
                             <TableCell className="p-0 pr-1">
-                              <AddChildButton
-                                parentId={category.id}
-                                parentName={category.categoryName}
-                              />
+                              <div className="flex items-center gap-1">
+                                <CategoryActions
+                                  categoryId={category.id}
+                                  categoryName={category.categoryName}
+                                  necessityLevel={category.necessityLevel}
+                                  notes={category.notes}
+                                  hasChildren={hasChildren}
+                                  isIncome={group.groupType === "Income"}
+                                />
+                                <AddChildButton
+                                  parentId={category.id}
+                                  parentName={category.categoryName}
+                                />
+                              </div>
                             </TableCell>
                           </TableRow>
 
@@ -256,19 +260,12 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                                 <div className="flex flex-col pl-6">
                                   <span className="text-sm">↳ {child.categoryName}</span>
                                   <div className="pl-4">
-                                    <NotesCell
-                                      categoryId={child.id}
-                                      initialNotes={child.notes}
-                                    />
+                                    <NotesCell notes={child.notes} />
                                   </div>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <NecessityCell
-                                  categoryId={child.id}
-                                  initialValue={child.necessityLevel}
-                                  readOnly={group.groupType === "Income"}
-                                />
+                                <NecessityCell value={child.necessityLevel} />
                               </TableCell>
                               <TableCell>
                                 {group.groupType !== "Income" && (
@@ -288,7 +285,9 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                                 <ChildActions
                                   categoryId={child.id}
                                   categoryName={child.categoryName}
+                                  necessityLevel={child.necessityLevel}
                                   notes={child.notes}
+                                  isIncome={group.groupType === "Income"}
                                 />
                               </TableCell>
                             </TableRow>

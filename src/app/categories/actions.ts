@@ -16,32 +16,6 @@ export async function updateCategoryBudget(
   return { success: true };
 }
 
-export async function updateCategoryNecessity(
-  categoryId: number,
-  necessityLevel: string
-): Promise<{ success: boolean }> {
-  await db.category.update({
-    where: { id: categoryId },
-    data: { necessityLevel },
-  });
-
-  revalidatePath("/categories");
-  return { success: true };
-}
-
-export async function updateCategoryNotes(
-  categoryId: number,
-  notes: string | null
-): Promise<{ success: boolean }> {
-  await db.category.update({
-    where: { id: categoryId },
-    data: { notes },
-  });
-
-  revalidatePath("/categories");
-  return { success: true };
-}
-
 export async function disableAllInGroup(
   groupId: number
 ): Promise<{ success: boolean; count: number }> {
@@ -199,6 +173,7 @@ export async function addChildCategory(
 export async function updateChildCategory(
   categoryId: number,
   categoryName: string,
+  necessityLevel: string,
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -206,6 +181,7 @@ export async function updateChildCategory(
       where: { id: categoryId },
       data: {
         categoryName,
+        necessityLevel,
         notes: notes || null,
       },
     });
@@ -224,6 +200,52 @@ export async function deleteChildCategory(
   categoryId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await db.category.delete({
+      where: { id: categoryId },
+    });
+
+    revalidatePath("/categories");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to delete category" };
+  }
+}
+
+export async function updateParentCategory(
+  categoryId: number,
+  categoryName: string,
+  necessityLevel: string,
+  notes?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await db.category.update({
+      where: { id: categoryId },
+      data: {
+        categoryName,
+        necessityLevel,
+        notes: notes || null,
+      },
+    });
+
+    revalidatePath("/categories");
+    return { success: true };
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { success: false, error: "Category name already exists" };
+    }
+    return { success: false, error: "Failed to update category" };
+  }
+}
+
+export async function deleteParentCategory(
+  categoryId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Delete children first, then parent
+    await db.category.deleteMany({
+      where: { parentCategoryId: categoryId },
+    });
+
     await db.category.delete({
       where: { id: categoryId },
     });

@@ -2,13 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { updateChildCategory, deleteChildCategory } from "./actions";
+import { updateParentCategory, deleteParentCategory } from "./actions";
 
-interface ChildActionsProps {
+interface CategoryActionsProps {
   categoryId: number;
   categoryName: string;
   necessityLevel: string;
   notes: string | null;
+  hasChildren: boolean;
   isIncome: boolean;
 }
 
@@ -21,7 +22,14 @@ const necessityStyles: Record<string, string> = {
   Wasteful: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 
-export function ChildActions({ categoryId, categoryName, necessityLevel, notes, isIncome }: ChildActionsProps) {
+export function CategoryActions({
+  categoryId,
+  categoryName,
+  necessityLevel,
+  notes,
+  hasChildren,
+  isIncome,
+}: CategoryActionsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [name, setName] = useState(categoryName);
@@ -65,7 +73,12 @@ export function ChildActions({ categoryId, categoryName, necessityLevel, notes, 
     setIsPending(true);
     setError(null);
 
-    const result = await updateChildCategory(categoryId, name.trim(), necessity, notesValue.trim() || undefined);
+    const result = await updateParentCategory(
+      categoryId,
+      name.trim(),
+      necessity,
+      notesValue.trim() || undefined
+    );
 
     if (result.success) {
       setIsEditing(false);
@@ -77,7 +90,7 @@ export function ChildActions({ categoryId, categoryName, necessityLevel, notes, 
 
   const handleDelete = async () => {
     setIsPending(true);
-    const result = await deleteChildCategory(categoryId);
+    const result = await deleteParentCategory(categoryId);
 
     if (!result.success) {
       setError(result.error ?? "Failed to delete");
@@ -129,7 +142,9 @@ export function ChildActions({ categoryId, categoryName, necessityLevel, notes, 
           <div className="text-xs text-muted-foreground mb-2">Edit category</div>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Name</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                Name
+              </label>
               <input
                 ref={inputRef}
                 type="text"
@@ -167,7 +182,9 @@ export function ChildActions({ categoryId, categoryName, necessityLevel, notes, 
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                Notes
+              </label>
               <textarea
                 value={notesValue}
                 onChange={(e) => setNotesValue(e.target.value)}
@@ -212,7 +229,15 @@ export function ChildActions({ categoryId, categoryName, necessityLevel, notes, 
           <div className="text-sm mb-2">
             Delete <span className="font-medium">{categoryName}</span>?
           </div>
-          <div className="text-xs text-muted-foreground mb-3">This action cannot be undone.</div>
+          {hasChildren ? (
+            <div className="text-xs text-rose-600 mb-3">
+              This will also delete all subcategories.
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground mb-3">
+              This action cannot be undone.
+            </div>
+          )}
           {error && <div className="text-xs text-rose-600 mb-2">{error}</div>}
           <div className="flex justify-end gap-2">
             <button
