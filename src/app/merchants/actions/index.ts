@@ -1,4 +1,3 @@
-// Re-export from new location for backward compatibility
 export {
   createMerchant,
   updateMerchant,
@@ -7,8 +6,11 @@ export {
   enableAllMerchants,
   disableAllMerchants,
   getCategories,
+} from "./merchant-actions";
+
+export {
   addPattern,
   updatePattern,
   deletePattern,
   getPatterns,
-} from "./actions/index";
+} from "./pattern-actions";

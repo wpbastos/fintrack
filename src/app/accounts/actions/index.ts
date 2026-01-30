@@ -1,4 +1,3 @@
-// Re-export from new location for backward compatibility
 export {
   createAccount,
   updateAccount,
@@ -6,12 +5,18 @@ export {
   deleteAccount,
   enableAllAccounts,
   disableAllAccounts,
+} from "./account-actions";
+
+export {
   createPerson,
   updatePerson,
   togglePersonStatus,
   deletePerson,
   enableAllPersons,
   disableAllPersons,
+} from "./person-actions";
+
+export {
   searchInstitutions,
   createInstitution,
   updateInstitution,
@@ -19,4 +24,4 @@ export {
   deleteInstitution,
   enableAllInstitutionsByType,
   disableAllInstitutionsByType,
-} from "./actions/index";
+} from "./institution-actions";

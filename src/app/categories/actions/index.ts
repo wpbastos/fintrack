@@ -1,4 +1,3 @@
-// Re-export from new location for backward compatibility
 export {
   updateCategoryBudget,
   toggleCategoryStatus,
@@ -10,9 +9,15 @@ export {
   deleteParentCategory,
   disableAllInGroup,
   enableAllInGroup,
+} from "./category-actions";
+
+export {
   createCategoryGroup,
   updateCategoryGroup,
   deleteCategoryGroup,
   getGroups,
+} from "./group-actions";
+
+export {
   getBudgetPeriods,
-} from "./actions/index";
+} from "./budget-actions";
