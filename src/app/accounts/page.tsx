@@ -14,8 +14,8 @@ async function getInstitutions() {
   });
 }
 
-async function getCardholders() {
-  return db.cardholder.findMany({
+async function getPersons() {
+  return db.person.findMany({
     orderBy: { name: "asc" },
     include: {
       _count: {
@@ -39,9 +39,9 @@ async function getAccounts() {
 }
 
 export default async function AccountsPage() {
-  const [institutions, cardholders, accounts] = await Promise.all([
+  const [institutions, persons, accounts] = await Promise.all([
     getInstitutions(),
-    getCardholders(),
+    getPersons(),
     getAccounts(),
   ]);
 
@@ -50,13 +50,13 @@ export default async function AccountsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Accounts</h1>
         <p className="text-muted-foreground">
-          Manage institutions, cardholders, and financial accounts.
+          Manage institutions, persons, and financial accounts.
         </p>
       </div>
 
       <AccountsTabs
         institutions={institutions}
-        cardholders={cardholders}
+        persons={persons}
         accounts={accounts}
       />
     </div>

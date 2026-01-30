@@ -11,15 +11,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createCardholder } from "./actions";
+import { createPerson } from "./actions";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
-interface CardholderDialogProps {
-  onCardholderCreated: (cardholder: { id: number; name: string }) => void;
+interface PersonDialogProps {
+  onPersonCreated: (person: { id: number; name: string }) => void;
 }
 
-export function CardholderDialog({ onCardholderCreated }: CardholderDialogProps) {
+export function PersonDialog({ onPersonCreated }: PersonDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [name, setName] = useState("");
@@ -34,20 +34,20 @@ export function CardholderDialog({ onCardholderCreated }: CardholderDialogProps)
     }
 
     setIsPending(true);
-    const result = await createCardholder({
+    const result = await createPerson({
       name: name.trim(),
       email: email.trim() || undefined,
     });
     setIsPending(false);
 
-    if (result.success && result.cardholder) {
-      toast.success("Cardholder created");
-      onCardholderCreated(result.cardholder);
+    if (result.success && result.person) {
+      toast.success("Person created");
+      onPersonCreated(result.person);
       setOpen(false);
       setName("");
       setEmail("");
     } else {
-      toast.error(result.error || "Failed to create cardholder");
+      toast.error(result.error || "Failed to create person");
     }
   };
 
@@ -64,19 +64,19 @@ export function CardholderDialog({ onCardholderCreated }: CardholderDialogProps)
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Cardholder</DialogTitle>
+          <DialogTitle>Add Person</DialogTitle>
           <DialogDescription>
-            Add a new cardholder who can be assigned to accounts.
+            Add a new person who can be assigned to accounts.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label htmlFor="cardholder-name" className="text-sm font-medium">
+              <label htmlFor="person-name" className="text-sm font-medium">
                 Name *
               </label>
               <Input
-                id="cardholder-name"
+                id="person-name"
                 placeholder="e.g., John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -84,11 +84,11 @@ export function CardholderDialog({ onCardholderCreated }: CardholderDialogProps)
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="cardholder-email" className="text-sm font-medium">
+              <label htmlFor="person-email" className="text-sm font-medium">
                 Email
               </label>
               <Input
-                id="cardholder-email"
+                id="person-email"
                 type="email"
                 placeholder="e.g., john@example.com"
                 value={email}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Building, Users, CreditCard } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InstitutionsPanel } from "./institutions-panel";
-import { CardholdersPanel } from "./cardholders-panel";
+import { PersonsPanel } from "./persons-panel";
 import { AccountsPanel } from "./accounts-panel";
 import { StatusFilter } from "./status-filter";
 
@@ -20,7 +20,7 @@ interface Institution {
   };
 }
 
-interface Cardholder {
+interface Person {
   id: number;
   name: string;
   email: string | null;
@@ -63,24 +63,24 @@ interface Account {
 
 interface AccountsTabsProps {
   institutions: Institution[];
-  cardholders: Cardholder[];
+  persons: Person[];
   accounts: Account[];
 }
 
 const tabs = [
   { id: "institutions", label: "Institutions", icon: Building },
-  { id: "cardholders", label: "Cardholders", icon: Users },
+  { id: "persons", label: "Persons", icon: Users },
   { id: "accounts", label: "Accounts", icon: CreditCard },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
-export function AccountsTabs({ institutions, cardholders, accounts }: AccountsTabsProps) {
+export function AccountsTabs({ institutions, persons, accounts }: AccountsTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("institutions");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
 
-  // Convert cardholders for the accounts panel (simpler type)
-  const cardholdersForAccounts = cardholders.map((c) => ({
+  // Convert persons for the accounts panel (simpler type)
+  const personsForAccounts = persons.map((c) => ({
     id: c.id,
     name: c.name,
     email: c.email,
@@ -89,7 +89,7 @@ export function AccountsTabs({ institutions, cardholders, accounts }: AccountsTa
 
   // Calculate stats
   const activeInstitutions = institutions.filter((i) => i.isActive).length;
-  const activeCardholders = cardholders.filter((c) => c.isActive).length;
+  const activePersons = persons.filter((c) => c.isActive).length;
   const activeAccounts = accounts.filter((a) => a.isActive).length;
   const totalCreditLimit = accounts
     .filter((a) => a.isActive && a.creditLimit)
@@ -99,7 +99,7 @@ export function AccountsTabs({ institutions, cardholders, accounts }: AccountsTa
   const filteredInstitutions = institutions.filter((i) =>
     statusFilter === "active" ? i.isActive : !i.isActive
   );
-  const filteredCardholders = cardholders.filter((c) =>
+  const filteredPersons = persons.filter((c) =>
     statusFilter === "active" ? c.isActive : !c.isActive
   );
   const filteredAccounts = accounts.filter((a) =>
@@ -118,8 +118,8 @@ export function AccountsTabs({ institutions, cardholders, accounts }: AccountsTa
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Cardholders</CardDescription>
-            <CardTitle className="text-2xl">{cardholders.length}</CardTitle>
+            <CardDescription>Total Persons</CardDescription>
+            <CardTitle className="text-2xl">{persons.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -155,8 +155,8 @@ export function AccountsTabs({ institutions, cardholders, accounts }: AccountsTa
               const count =
                 tab.id === "institutions"
                   ? filteredInstitutions.length
-                  : tab.id === "cardholders"
-                    ? filteredCardholders.length
+                  : tab.id === "persons"
+                    ? filteredPersons.length
                     : filteredAccounts.length;
               return (
                 <button
@@ -195,11 +195,11 @@ export function AccountsTabs({ institutions, cardholders, accounts }: AccountsTa
         {activeTab === "institutions" && (
           <InstitutionsPanel institutions={filteredInstitutions} />
         )}
-        {activeTab === "cardholders" && (
-          <CardholdersPanel cardholders={filteredCardholders} />
+        {activeTab === "persons" && (
+          <PersonsPanel persons={filteredPersons} />
         )}
         {activeTab === "accounts" && (
-          <AccountsPanel accounts={filteredAccounts} cardholders={cardholdersForAccounts} />
+          <AccountsPanel accounts={filteredAccounts} persons={personsForAccounts} />
         )}
       </div>
     </>

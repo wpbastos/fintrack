@@ -5,12 +5,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
+# Development
 npm run dev          # Start Next.js dev server
 npm run build        # Production build
 npm run lint         # ESLint check
-npm run db:seed      # Seed database with categories and groups
-npx prisma migrate dev   # Run migrations
-npx prisma generate      # Regenerate Prisma client after schema changes
+
+# Database
+npm run db:seed              # Seed database with categories and groups
+npx prisma migrate dev       # Run migrations
+npx prisma generate          # Regenerate Prisma client after schema changes
+
+# Docker
+docker-compose up -d         # Run containerized
+docker-compose down          # Stop containers
+docker-compose logs -f       # View logs
 ```
 
 ## Tech Stack
@@ -19,6 +27,7 @@ npx prisma generate      # Regenerate Prisma client after schema changes
 - **Database**: SQLite via Prisma ORM with better-sqlite3 adapter
 - **UI**: Tailwind CSS 4, shadcn/ui (new-york style), Radix UI primitives, Lucide icons
 - **Notifications**: Sonner for toasts
+- **Scheduling**: node-cron for background jobs
 
 ## Architecture
 
@@ -82,3 +91,80 @@ When multiple tables need consistent column widths (e.g., grouped data in separa
 ```
 
 This ensures columns align consistently across all table instances. Add `text-center` to TableHead/TableCell for centered columns.
+
+## Budget Cycle System
+
+### BudgetPeriod Table
+
+Tracks historical budget cycles for each category:
+- `periodStart` / `periodEnd` - Cycle dates
+- `budgetedAmount` - Snapshot of budget at period start
+- `actualSpent` - Calculated from transactions when period closes
+- `status` - "open" or "closed"
+
+### Cron Jobs
+
+Budget reset runs daily at midnight via node-cron:
+1. Closes expired open periods (calculates actual spent)
+2. Opens new periods for active categories with budgets
+
+**Files:**
+- `/src/lib/cron.ts` - Cron scheduler initialization
+- `/src/app/api/cron/budget-reset/route.ts` - Reset endpoint
+- `/src/instrumentation.ts` - Initializes cron on app start
+
+**Manual trigger:**
+```bash
+curl -X POST http://localhost:3000/api/cron/budget-reset
+```
+
+**Environment variables:**
+- `CRON_SECRET` - Optional auth token for cron endpoint
+- `NEXT_PUBLIC_APP_URL` - Base URL for internal API calls
+
+### Budget Period History UI (TODO)
+
+Display budget period history with these views:
+
+1. **Categories Page** - Add "History" button per category
+   - Shows list of closed periods with budgeted vs actual
+   - Visual indicator (green/red) for under/over budget
+
+2. **Dashboard Widget** - Current period summary
+   - Progress bars showing spent vs budget per category
+   - Days remaining in period
+
+3. **Reports Page** (future)
+   - Monthly/yearly budget trends
+   - Category-level spending analysis
+   - Export to CSV
+
+**Account Integration:**
+- Credit card accounts with `billingCycleDay` can have custom period dates
+- Link budget periods to account via `accountId` field
+- When viewing account details, show related budget periods
+
+## Docker
+
+### Commands
+
+```bash
+docker build -t fintrack .           # Build image
+docker-compose up -d                 # Run with compose
+docker-compose down                  # Stop
+docker-compose logs -f fintrack      # View logs
+```
+
+### Configuration
+
+- SQLite database persisted in Docker volume `fintrack-data`
+- Standalone Next.js output for minimal image size
+- Health check on `/api/cron/budget-reset` endpoint
+
+### Environment Variables
+
+```bash
+DATABASE_URL=file:/app/data/fintrack.db
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+CRON_SECRET=your-secret-here  # Optional
+```

@@ -10,15 +10,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { BudgetCell } from "./budget-cell";
 import { NecessityCell } from "./necessity-cell";
 import { StatusToggle } from "./status-toggle";
-import { StatusFilter } from "./status-filter";
 import { AddChildButton } from "./add-child-button";
 import { ChildActions } from "./child-actions";
 import { CategoryActions } from "./category-actions";
 import { NotesCell } from "./notes-cell";
 import { GroupActions } from "./group-actions";
+import { AddCategoryDialog } from "./add-category-dialog";
+import { AddGroupDialog } from "./add-group-dialog";
+import { X } from "lucide-react";
 
 interface Category {
   id: number;
@@ -38,8 +41,9 @@ interface CategoryGroup {
   categories: Category[];
 }
 
-interface CategoriesListProps {
+interface CategoriesPanelProps {
   groups: CategoryGroup[];
+  allGroups: CategoryGroup[];
 }
 
 function getTypeBadge(type: string) {
@@ -76,13 +80,6 @@ function countCategories(categories: Category[]): number {
   }, 0);
 }
 
-function countActiveCategories(categories: Category[]): number {
-  return categories.reduce((sum, cat) => {
-    const activeChildren = cat.childCategories?.filter((c) => c.isActive).length ?? 0;
-    return sum + (cat.isActive ? 1 : 0) + activeChildren;
-  }, 0);
-}
-
 // Sum budgets for a list of categories (using effective budget which accounts for children)
 function sumBudgets(categories: Category[]): number {
   return categories
@@ -90,89 +87,81 @@ function sumBudgets(categories: Category[]): number {
     .reduce((sum, cat) => sum + (getEffectiveBudget(cat) ?? 0), 0);
 }
 
-export function CategoriesList({ groups }: CategoriesListProps) {
-  const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
+export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
+  const [search, setSearch] = useState("");
 
-  // Filter categories based on status (including children)
-  const filteredGroups = groups.map((group) => ({
-    ...group,
-    categories: group.categories
-      .map((cat) => ({
-        ...cat,
-        childCategories: cat.childCategories?.filter((child) => {
-          if (statusFilter === "active") return child.isActive;
-          return !child.isActive;
-        }),
+  // Filter categories based on search (status filtering is done in tabs)
+  const filteredGroups = search
+    ? groups.map((group) => ({
+        ...group,
+        categories: group.categories
+          .map((cat) => ({
+            ...cat,
+            childCategories: cat.childCategories?.filter((child) => {
+              const query = search.toLowerCase();
+              return (
+                child.categoryName.toLowerCase().includes(query) ||
+                (child.notes?.toLowerCase().includes(query) ?? false)
+              );
+            }),
+          }))
+          .filter((cat) => {
+            const query = search.toLowerCase();
+            const matchesSearch =
+              cat.categoryName.toLowerCase().includes(query) ||
+              (cat.notes?.toLowerCase().includes(query) ?? false);
+            const hasMatchingChildren = (cat.childCategories?.length ?? 0) > 0;
+            return matchesSearch || hasMatchingChildren;
+          }),
       }))
-      .filter((cat) => {
-        const matchesFilter = statusFilter === "active" ? cat.isActive : !cat.isActive;
-        const hasMatchingChildren = (cat.childCategories?.length ?? 0) > 0;
-        return matchesFilter || hasMatchingChildren;
-      }),
-  }));
+    : groups;
 
-  // Count stats
-  const totalCategories = groups.reduce((sum, g) => sum + countCategories(g.categories), 0);
-  const activeCategories = groups.reduce((sum, g) => sum + countActiveCategories(g.categories), 0);
   const filteredTotal = filteredGroups.reduce((sum, g) => sum + g.categories.length, 0);
 
-  // Calculate total budget (only for expense-type groups)
-  const totalBudget = groups
-    .filter((g) => g.groupType === "Expense")
-    .reduce((sum, g) => sum + sumBudgets(g.categories), 0);
-
   return (
-    <>
-      <div className="grid gap-4 md:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Categories</CardDescription>
-            <CardTitle className="text-2xl">{totalCategories}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Active</CardDescription>
-            <CardTitle className="text-2xl text-emerald-600">{activeCategories}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Inactive</CardDescription>
-            <CardTitle className="text-2xl text-slate-500">{totalCategories - activeCategories}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Groups</CardDescription>
-            <CardTitle className="text-2xl">{groups.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Budget</CardDescription>
-            <CardTitle className="text-2xl text-violet-600">${totalBudget.toLocaleString()}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <div className="flex justify-end">
-        <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <div className="relative">
+          <Input
+            placeholder="Search categories..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64 pr-8"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <AddCategoryDialog groups={allGroups} />
+        <AddGroupDialog />
       </div>
 
       {filteredGroups.map((group) => {
-        if (group.categories.length === 0) return null;
+        // Check if this group is truly empty (no categories in DB) vs just filtered out
+        const originalGroup = allGroups.find((g) => g.id === group.id);
+        const isTrulyEmpty = (originalGroup?.categories.length ?? 0) === 0;
+        const hasFilteredCategories = group.categories.length > 0;
+
+        // Skip groups that have categories but they're all filtered out
+        if (!isTrulyEmpty && !hasFilteredCategories) return null;
+
         const groupBudget = sumBudgets(group.categories);
 
         return (
-          <Card key={group.id}>
+          <Card key={group.id} className={isTrulyEmpty ? "opacity-60" : ""}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <CardTitle>{group.groupName}</CardTitle>
                   {getTypeBadge(group.groupType)}
                 </div>
-                <GroupActions groupId={group.id} groupName={group.groupName} />
+                <GroupActions groupId={group.id} groupName={group.groupName} groupType={group.groupType} notes={group.notes} />
               </div>
               <CardDescription className="flex items-center justify-between">
                 <span>{countCategories(group.categories)} categories{group.notes && ` · ${group.notes}`}</span>
@@ -183,18 +172,23 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                 )}
               </CardDescription>
             </CardHeader>
+            {isTrulyEmpty ? (
+              <CardContent className="py-6 text-center text-sm text-muted-foreground italic">
+                No categories in this group
+              </CardContent>
+            ) : (
             <CardContent>
               <div className="rounded-md border overflow-visible">
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Category</TableHead>
-                      <TableHead className="w-[16%]">Necessity</TableHead>
-                      <TableHead className="w-[20%] text-right pr-4">
+                      <TableHead className="w-[12%]">Necessity</TableHead>
+                      <TableHead className="w-[16%] text-right pr-4">
                         {group.groupType !== "Income" ? "Monthly Budget" : ""}
                       </TableHead>
-                      <TableHead className="w-20">Status</TableHead>
-                      <TableHead className="w-16 p-0"></TableHead>
+                      <TableHead className="w-18">Status</TableHead>
+                      <TableHead className="w-28 p-0"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -244,6 +238,7 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                                   notes={category.notes}
                                   hasChildren={hasChildren}
                                   isIncome={group.groupType === "Income"}
+                                  monthlyBudget={category.monthlyBudget}
                                 />
                                 <AddChildButton
                                   parentId={category.id}
@@ -288,6 +283,7 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                                   necessityLevel={child.necessityLevel}
                                   notes={child.notes}
                                   isIncome={group.groupType === "Income"}
+                                  monthlyBudget={child.monthlyBudget}
                                 />
                               </TableCell>
                             </TableRow>
@@ -299,6 +295,7 @@ export function CategoriesList({ groups }: CategoriesListProps) {
                 </Table>
               </div>
             </CardContent>
+            )}
           </Card>
         );
       })}
@@ -306,10 +303,10 @@ export function CategoriesList({ groups }: CategoriesListProps) {
       {filteredTotal === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No {statusFilter} categories found.
+            No categories found.
           </CardContent>
         </Card>
       )}
-    </>
+    </div>
   );
 }

@@ -38,7 +38,7 @@ interface Institution {
   isActive: boolean;
 }
 
-interface Cardholder {
+interface Person {
   id: number;
   name: string;
   email: string | null;
@@ -59,20 +59,20 @@ interface Account {
   billingCycleDay: number | null;
   isJoint: boolean;
   primaryHolderId: number | null;
-  primaryHolder: Cardholder | null;
+  primaryHolder: Person | null;
   notes: string | null;
 }
 
 interface AccountDialogProps {
   account?: Account;
-  cardholders: Cardholder[];
+  persons: Person[];
   trigger?: React.ReactNode;
   onSuccess?: () => void;
 }
 
 export function AccountDialog({
   account,
-  cardholders: initialCardholders,
+  persons: initialPersons,
   trigger,
   onSuccess,
 }: AccountDialogProps) {
@@ -101,7 +101,7 @@ export function AccountDialog({
         <AccountForm
           key={formKey}
           account={account}
-          initialCardholders={initialCardholders}
+          initialPersons={initialPersons}
           onSuccess={() => {
             setOpen(false);
             onSuccess?.();
@@ -115,12 +115,12 @@ export function AccountDialog({
 
 function AccountForm({
   account,
-  initialCardholders,
+  initialPersons,
   onSuccess,
   onCancel,
 }: {
   account?: Account;
-  initialCardholders: Cardholder[];
+  initialPersons: Person[];
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -351,7 +351,7 @@ function AccountForm({
 
             {/* Primary Holder */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Primary Cardholder</label>
+              <label className="text-sm font-medium">Primary Person</label>
               <select
                 value={primaryHolderId || ""}
                 onChange={(e) =>
@@ -360,12 +360,12 @@ function AccountForm({
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-violet-300 dark:bg-slate-800 dark:border-slate-700"
               >
                 <option value="">None</option>
-                {initialCardholders
+                {initialPersons
                   .filter((c) => c.isActive)
-                  .map((cardholder) => (
-                    <option key={cardholder.id} value={cardholder.id}>
-                      {cardholder.name}
-                      {cardholder.email && ` (${cardholder.email})`}
+                  .map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name}
+                      {person.email && ` (${person.email})`}
                     </option>
                   ))}
               </select>
@@ -423,17 +423,17 @@ function AccountForm({
 // Simple edit button trigger
 export function AccountEditButton({
   account,
-  cardholders,
+  persons,
   onSuccess,
 }: {
   account: Account;
-  cardholders: Cardholder[];
+  persons: Person[];
   onSuccess?: () => void;
 }) {
   return (
     <AccountDialog
       account={account}
-      cardholders={cardholders}
+      persons={persons}
       onSuccess={onSuccess}
       trigger={
         <button

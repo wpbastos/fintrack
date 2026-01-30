@@ -1,0 +1,19 @@
+services:
+  fintrack:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/fintrack.db
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - CRON_SECRET=${CRON_SECRET:-}
+    volumes:
+      # Persist SQLite database
+      - fintrack-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  fintrack-data:

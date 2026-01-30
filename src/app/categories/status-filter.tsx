@@ -7,30 +7,27 @@ interface StatusFilterProps {
 
 export function StatusFilter({ value, onChange }: StatusFilterProps) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">Show:</span>
-      <div className="flex rounded-md border">
-        <button
-          onClick={() => onChange("active")}
-          className={`px-3 py-1 text-sm rounded-l-md transition-colors ${
-            value === "active"
-              ? "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200"
-              : "hover:bg-slate-100 dark:hover:bg-slate-800"
-          }`}
-        >
-          Active
-        </button>
-        <button
-          onClick={() => onChange("inactive")}
-          className={`px-3 py-1 text-sm rounded-r-md transition-colors ${
-            value === "inactive"
-              ? "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200"
-              : "hover:bg-slate-100 dark:hover:bg-slate-800"
-          }`}
-        >
-          Inactive
-        </button>
-      </div>
+    <div className="inline-flex rounded-lg border p-1 bg-muted/50">
+      <button
+        onClick={() => onChange("active")}
+        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+          value === "active"
+            ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Active
+      </button>
+      <button
+        onClick={() => onChange("inactive")}
+        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+          value === "inactive"
+            ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Inactive
+      </button>
     </div>
   );
 }

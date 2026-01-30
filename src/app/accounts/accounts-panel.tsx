@@ -45,7 +45,7 @@ interface Institution {
   isActive: boolean;
 }
 
-interface Cardholder {
+interface Person {
   id: number;
   name: string;
   email: string | null;
@@ -66,22 +66,22 @@ interface Account {
   billingCycleDay: number | null;
   isJoint: boolean;
   primaryHolderId: number | null;
-  primaryHolder: Cardholder | null;
+  primaryHolder: Person | null;
   isActive: boolean;
   notes: string | null;
 }
 
 interface AccountsPanelProps {
   accounts: Account[];
-  cardholders: Cardholder[];
+  persons: Person[];
 }
 
-export function AccountsPanel({ accounts, cardholders }: AccountsPanelProps) {
+export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
   const [bulkPending, setBulkPending] = useState(false);
 
-  // Filter accounts by search (name, nickname, institution, cardholder)
+  // Filter accounts by search (name, nickname, institution, person)
   const filteredAccounts = search
     ? accounts.filter((a) => {
         const query = search.toLowerCase();
@@ -146,7 +146,7 @@ export function AccountsPanel({ accounts, cardholders }: AccountsPanelProps) {
             </button>
           )}
         </div>
-        <AccountDialog cardholders={cardholders} />
+        <AccountDialog persons={persons} />
       </div>
       <Card>
         <CardHeader>
@@ -204,7 +204,7 @@ export function AccountsPanel({ accounts, cardholders }: AccountsPanelProps) {
                     <TableHead>Account</TableHead>
                     <TableHead>Institution</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Cardholder</TableHead>
+                    <TableHead>Person</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead className="p-0"></TableHead>
                   </TableRow>
@@ -294,7 +294,7 @@ export function AccountsPanel({ accounts, cardholders }: AccountsPanelProps) {
                       <div className="flex items-center justify-center gap-1">
                         <AccountEditButton
                           account={account}
-                          cardholders={cardholders}
+                          persons={persons}
                         />
                         <button
                           type="button"

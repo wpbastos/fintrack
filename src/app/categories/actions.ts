@@ -256,3 +256,161 @@ export async function deleteParentCategory(
     return { success: false, error: "Failed to delete category" };
   }
 }
+
+export async function createCategory(data: {
+  categoryName: string;
+  groupId: number;
+  necessityLevel: string;
+  monthlyBudget?: number;
+  notes?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Get max sort order in group
+    const maxSortOrder = await db.category.aggregate({
+      where: { groupId: data.groupId, parentCategoryId: null },
+      _max: { sortOrder: true },
+    });
+
+    await db.category.create({
+      data: {
+        categoryName: data.categoryName,
+        groupId: data.groupId,
+        necessityLevel: data.necessityLevel,
+        monthlyBudget: data.monthlyBudget ?? null,
+        notes: data.notes ?? null,
+        sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
+        isActive: true,
+      },
+    });
+
+    revalidatePath("/categories");
+    return { success: true };
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { success: false, error: "Category name already exists" };
+    }
+    return { success: false, error: "Failed to create category" };
+  }
+}
+
+export async function createCategoryGroup(data: {
+  groupName: string;
+  groupType: string;
+  notes?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Get max sort order
+    const maxSortOrder = await db.categoryGroup.aggregate({
+      _max: { sortOrder: true },
+    });
+
+    await db.categoryGroup.create({
+      data: {
+        groupName: data.groupName,
+        groupType: data.groupType,
+        notes: data.notes ?? null,
+        sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
+        isActive: true,
+      },
+    });
+
+    revalidatePath("/categories");
+    return { success: true };
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { success: false, error: "Group name already exists" };
+    }
+    return { success: false, error: "Failed to create group" };
+  }
+}
+
+export async function getGroups(): Promise<{ id: number; groupName: string; groupType: string }[]> {
+  return db.categoryGroup.findMany({
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, groupName: true, groupType: true },
+  });
+}
+
+export async function getBudgetPeriods(
+  categoryId: number
+): Promise<{
+  id: number;
+  periodStart: Date;
+  periodEnd: Date;
+  budgetedAmount: number;
+  actualSpent: number;
+  status: string;
+  notes: string | null;
+}[]> {
+  const periods = await db.budgetPeriod.findMany({
+    where: { categoryId },
+    orderBy: { periodStart: "desc" },
+  });
+
+  return periods.map((p) => ({
+    id: p.id,
+    periodStart: p.periodStart,
+    periodEnd: p.periodEnd,
+    budgetedAmount: p.budgetedAmount,
+    actualSpent: p.actualSpent,
+    status: p.status,
+    notes: p.notes,
+  }));
+}
+
+export async function updateCategoryGroup(
+  groupId: number,
+  data: {
+    groupName: string;
+    groupType: string;
+    notes?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await db.categoryGroup.update({
+      where: { id: groupId },
+      data: {
+        groupName: data.groupName,
+        groupType: data.groupType,
+        notes: data.notes ?? null,
+      },
+    });
+
+    revalidatePath("/categories");
+    return { success: true };
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { success: false, error: "Group name already exists" };
+    }
+    return { success: false, error: "Failed to update group" };
+  }
+}
+
+export async function deleteCategoryGroup(
+  groupId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Delete all child categories first
+    await db.category.deleteMany({
+      where: {
+        groupId,
+        parentCategoryId: { not: null },
+      },
+    });
+
+    // Delete all parent categories
+    await db.category.deleteMany({
+      where: { groupId },
+    });
+
+    // Delete the group
+    await db.categoryGroup.delete({
+      where: { id: groupId },
+    });
+
+    revalidatePath("/categories");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to delete group" };
+  }
+}

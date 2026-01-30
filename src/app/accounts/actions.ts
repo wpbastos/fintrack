@@ -104,7 +104,7 @@ export async function toggleAccountStatus(
     data: { isActive },
   });
 
-  // When enabling an account, also enable its institution and cardholder
+  // When enabling an account, also enable its institution and person
   if (isActive) {
     if (account.institutionId) {
       await db.institution.update({
@@ -113,7 +113,7 @@ export async function toggleAccountStatus(
       });
     }
     if (account.primaryHolderId) {
-      await db.cardholder.update({
+      await db.person.update({
         where: { id: account.primaryHolderId },
         data: { isActive: true },
       });
@@ -140,7 +140,7 @@ export async function deleteAccount(
 }
 
 export async function enableAllAccounts(): Promise<{ success: boolean }> {
-  // Get all inactive accounts with their institution and cardholder IDs
+  // Get all inactive accounts with their institution and person IDs
   const accounts = await db.account.findMany({
     where: { isActive: false },
     select: { id: true, institutionId: true, primaryHolderId: true },
@@ -161,11 +161,11 @@ export async function enableAllAccounts(): Promise<{ success: boolean }> {
     });
   }
 
-  // Enable linked cardholders
-  const cardholderIds = [...new Set(accounts.map((a) => a.primaryHolderId).filter(Boolean))] as number[];
-  if (cardholderIds.length > 0) {
-    await db.cardholder.updateMany({
-      where: { id: { in: cardholderIds } },
+  // Enable linked persons
+  const personIds = [...new Set(accounts.map((a) => a.primaryHolderId).filter(Boolean))] as number[];
+  if (personIds.length > 0) {
+    await db.person.updateMany({
+      where: { id: { in: personIds } },
       data: { isActive: true },
     });
   }
@@ -184,14 +184,14 @@ export async function disableAllAccounts(): Promise<{ success: boolean }> {
   return { success: true };
 }
 
-// Cardholder actions
-export async function createCardholder(data: {
+// Person actions
+export async function createPerson(data: {
   name: string;
   email?: string;
   notes?: string;
-}): Promise<{ success: boolean; error?: string; cardholder?: { id: number; name: string } }> {
+}): Promise<{ success: boolean; error?: string; person?: { id: number; name: string } }> {
   try {
-    const cardholder = await db.cardholder.create({
+    const person = await db.person.create({
       data: {
         name: data.name,
         email: data.email || null,
@@ -200,17 +200,17 @@ export async function createCardholder(data: {
     });
 
     revalidatePath("/accounts");
-    return { success: true, cardholder: { id: cardholder.id, name: cardholder.name } };
+    return { success: true, person: { id: person.id, name: person.name } };
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") {
-      return { success: false, error: "Cardholder with this name already exists" };
+      return { success: false, error: "Person with this name already exists" };
     }
-    return { success: false, error: "Failed to create cardholder" };
+    return { success: false, error: "Failed to create person" };
   }
 }
 
-export async function updateCardholder(
-  cardholderId: number,
+export async function updatePerson(
+  personId: number,
   data: {
     name?: string;
     email?: string | null;
@@ -218,8 +218,8 @@ export async function updateCardholder(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await db.cardholder.update({
-      where: { id: cardholderId },
+    await db.person.update({
+      where: { id: personId },
       data,
     });
 
@@ -227,18 +227,18 @@ export async function updateCardholder(
     return { success: true };
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") {
-      return { success: false, error: "Cardholder with this name already exists" };
+      return { success: false, error: "Person with this name already exists" };
     }
-    return { success: false, error: "Failed to update cardholder" };
+    return { success: false, error: "Failed to update person" };
   }
 }
 
-export async function toggleCardholderStatus(
-  cardholderId: number,
+export async function togglePersonStatus(
+  personId: number,
   isActive: boolean
 ): Promise<{ success: boolean }> {
-  await db.cardholder.update({
-    where: { id: cardholderId },
+  await db.person.update({
+    where: { id: personId },
     data: { isActive },
   });
 
@@ -246,46 +246,46 @@ export async function toggleCardholderStatus(
   return { success: true };
 }
 
-export async function deleteCardholder(
-  cardholderId: number
+export async function deletePerson(
+  personId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Check if cardholder has accounts or transactions
+    // Check if person has accounts or transactions
     const accountCount = await db.account.count({
-      where: { primaryHolderId: cardholderId },
+      where: { primaryHolderId: personId },
     });
 
     if (accountCount > 0) {
       return {
         success: false,
-        error: `Cannot delete: ${accountCount} account(s) linked to this cardholder`,
+        error: `Cannot delete: ${accountCount} account(s) linked to this person`,
       };
     }
 
     const transactionCount = await db.transaction.count({
-      where: { cardholderId },
+      where: { personId },
     });
 
     if (transactionCount > 0) {
       return {
         success: false,
-        error: `Cannot delete: ${transactionCount} transaction(s) linked to this cardholder`,
+        error: `Cannot delete: ${transactionCount} transaction(s) linked to this person`,
       };
     }
 
-    await db.cardholder.delete({
-      where: { id: cardholderId },
+    await db.person.delete({
+      where: { id: personId },
     });
 
     revalidatePath("/accounts");
     return { success: true };
   } catch {
-    return { success: false, error: "Failed to delete cardholder" };
+    return { success: false, error: "Failed to delete person" };
   }
 }
 
-export async function enableAllCardholders(): Promise<{ success: boolean }> {
-  await db.cardholder.updateMany({
+export async function enableAllPersons(): Promise<{ success: boolean }> {
+  await db.person.updateMany({
     where: { isActive: false },
     data: { isActive: true },
   });
@@ -294,8 +294,8 @@ export async function enableAllCardholders(): Promise<{ success: boolean }> {
   return { success: true };
 }
 
-export async function disableAllCardholders(): Promise<{ success: boolean }> {
-  await db.cardholder.updateMany({
+export async function disableAllPersons(): Promise<{ success: boolean }> {
+  await db.person.updateMany({
     where: { isActive: true },
     data: { isActive: false },
   });

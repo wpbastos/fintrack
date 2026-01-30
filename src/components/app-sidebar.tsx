@@ -63,14 +63,19 @@ const setup = [
     icon: CreditCard,
   },
   {
+    title: "Categories",
+    url: "/categories",
+    icon: Tags,
+  },
+  {
     title: "Merchants",
     url: "/merchants",
     icon: Store,
   },
   {
-    title: "Categories",
-    url: "/categories",
-    icon: Tags,
+    title: "Income",
+    url: "/income",
+    icon: Wallet,
   },
 ];
 

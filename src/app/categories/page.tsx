@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { CategoriesList } from "./categories-list";
+import { CategoriesTabs } from "./categories-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function CategoriesPage() {
         </p>
       </div>
 
-      <CategoriesList groups={groups} />
+      <CategoriesTabs groups={groups} />
     </div>
   );
 }
