@@ -2,9 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { randomUUID } from "crypto";
 import { resolveBatch } from "@/lib/staging-resolver";
+import {
+  resolveOrCreateAccount,
+  validateAccountInput,
+  type AccountInput,
+} from "@/lib/account-resolver";
+
+interface AccountData {
+  accountName: string;
+  accountNumber?: string;
+  institutionName?: string;
+  accountType: string;
+  currency?: string;
+}
 
 interface StatementData {
   accountId?: number;
+  account?: AccountData;
   periodStart?: string;
   periodEnd?: string;
   openingBalance?: number;
@@ -22,6 +36,7 @@ interface TransactionData {
 interface ImportPayload {
   statement: StatementData;
   transactions: TransactionData[];
+  force?: boolean;
 }
 
 function generateFingerprint(
@@ -52,11 +67,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { statement, transactions } = data;
+    const { statement, transactions, force } = data;
+
+    // Resolve account: either use provided accountId or create/find from account object
+    let resolvedAccountId: number | undefined = statement.accountId;
+    let accountCreated = false;
+    let institutionCreated = false;
+
+    if (!resolvedAccountId && statement.account) {
+      // Validate account input
+      if (!validateAccountInput(statement.account)) {
+        return NextResponse.json(
+          { error: "Invalid account data: accountName and accountType are required" },
+          { status: 400 }
+        );
+      }
+
+      const accountInput: AccountInput = {
+        accountName: statement.account.accountName,
+        accountNumber: statement.account.accountNumber,
+        institutionName: statement.account.institutionName,
+        accountType: statement.account.accountType,
+        currency: statement.account.currency,
+      };
+
+      const accountResult = await resolveOrCreateAccount(accountInput);
+      resolvedAccountId = accountResult.accountId;
+      accountCreated = accountResult.accountCreated;
+      institutionCreated = accountResult.institutionCreated;
+    }
 
     // Generate fingerprint for duplicate detection
     const fingerprint = generateFingerprint(
-      statement.accountId,
+      resolvedAccountId,
       statement.periodEnd,
       statement.closingBalance,
       transactions.length
@@ -68,10 +111,27 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingImport) {
-      return NextResponse.json(
-        { error: `This statement was already imported on ${existingImport.createdAt.toLocaleDateString()}` },
-        { status: 409 }
-      );
+      if (!force) {
+        // Return duplicate info, let client decide
+        return NextResponse.json({
+          duplicate: true,
+          existingImport: {
+            id: existingImport.id,
+            importedAt: existingImport.createdAt,
+            transactionCount: existingImport.transactionCount,
+          },
+        });
+      }
+
+      // Force re-import: delete existing staging transactions
+      await db.stagingTransaction.deleteMany({
+        where: { importLogId: existingImport.id },
+      });
+
+      // Delete the old import log
+      await db.importLog.delete({
+        where: { id: existingImport.id },
+      });
     }
 
     // Generate batch ID for this import
@@ -83,7 +143,7 @@ export async function POST(request: NextRequest) {
         fileName: statement.sourceFile ?? "unknown",
         filePath: null,
         sourceType: statement.sourceType ?? "Statement",
-        accountId: statement.accountId,
+        accountId: resolvedAccountId,
         periodStart: statement.periodStart ? new Date(statement.periodStart) : null,
         periodEnd: statement.periodEnd ? new Date(statement.periodEnd) : null,
         openingBalance: statement.openingBalance,
@@ -101,14 +161,14 @@ export async function POST(request: NextRequest) {
         rawDate: txn.date,
         rawDescription: txn.description,
         rawAmount: txn.amount,
-        accountId: statement.accountId,
+        accountId: resolvedAccountId,
         sourceFile: statement.sourceFile,
         status: "pending",
         importLogId: importLog.id,
       })),
     });
 
-    // Resolve dates and merchants for this batch
+    // Resolve dates, merchants, income sources, and categories for this batch
     const resolution = await resolveBatch(batchId);
 
     // Update import log status
@@ -125,6 +185,10 @@ export async function POST(request: NextRequest) {
       importId: importLog.id,
       transactionCount: stagingTransactions.count,
       batchId,
+      accountId: resolvedAccountId,
+      accountCreated,
+      institutionCreated,
+      reimported: !!force,
       resolution,
     });
   } catch (error) {

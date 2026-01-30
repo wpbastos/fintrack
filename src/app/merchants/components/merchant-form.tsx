@@ -32,6 +32,10 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
   );
   const [website, setWebsite] = useState(merchant?.website || "");
   const [notes, setNotes] = useState(merchant?.notes || "");
+  const [alternativeName, setAlternativeName] = useState(merchant?.alternativeName || "");
+  const [alternativeSavings, setAlternativeSavings] = useState(
+    merchant?.alternativeSavings?.toString() || ""
+  );
 
   useEffect(() => {
     getCategories().then(setCategories);
@@ -50,11 +54,15 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
 
     setIsPending(true);
 
+    const hasAlt = alternativeName.trim().length > 0;
     const data = {
       merchantName: merchantName.trim(),
       defaultCategoryId: defaultCategoryId ? Number(defaultCategoryId) : undefined,
       website: website.trim() || undefined,
       notes: notes.trim() || undefined,
+      hasAlternative: hasAlt,
+      alternativeName: hasAlt ? alternativeName.trim() : undefined,
+      alternativeSavings: hasAlt && alternativeSavings ? Number(alternativeSavings) : undefined,
     };
 
     if (merchant) {
@@ -63,6 +71,9 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
         defaultCategoryId: data.defaultCategoryId ?? null,
         website: data.website ?? null,
         notes: data.notes ?? null,
+        hasAlternative: data.hasAlternative,
+        alternativeName: data.alternativeName ?? null,
+        alternativeSavings: data.alternativeSavings ?? null,
       });
 
       setIsPending(false);
@@ -143,6 +154,37 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="alternative-name" className="text-sm font-medium">
+              Cheaper Alternative
+            </label>
+            <div className="flex gap-2">
+              <Input
+                id="alternative-name"
+                placeholder="e.g., No Frills, Home coffee"
+                value={alternativeName}
+                onChange={(e) => setAlternativeName(e.target.value)}
+                className="flex-1"
+              />
+              <div className="relative w-28">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                <Input
+                  id="alternative-savings"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={alternativeSavings}
+                  onChange={(e) => setAlternativeSavings(e.target.value)}
+                  className="pl-6"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Estimated savings per transaction
+            </p>
           </div>
 
           <PatternList

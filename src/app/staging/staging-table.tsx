@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ReloadButton } from "./reload-button";
 
 interface TransactionWithBalance {
   id: number;
@@ -165,9 +164,6 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
                             {formatCurrency(batch.openingBalance)} → {formatCurrency(batch.closingBalance)}
                           </span>
                         )}
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <ReloadButton importLogId={batch.importLogId} fileName={fileName} />
-                        </div>
                       </span>
                     </div>
                   </TableCell>

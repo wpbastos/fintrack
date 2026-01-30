@@ -21,7 +21,7 @@
     },
     {
       "date": "2024-01-10",
-      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
       "amount": 2500.00
     },
     {
@@ -51,12 +51,12 @@
     },
     {
       "date": "2024-01-25",
-      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
       "amount": 2500.00
     },
     {
       "date": "2024-01-28",
-      "description": "HYDRO BILL PAYMENT",
+      "description": "BC HYDRO PAYMENT",
       "amount": -156.78
     },
     {
@@ -66,7 +66,7 @@
     },
     {
       "date": "2024-01-31",
-      "description": "RENT PAYMENT - E-TRANSFER",
+      "description": "RENT PAYMENT - E-TRANSFER OUT",
       "amount": -1595.00
     }
   ]

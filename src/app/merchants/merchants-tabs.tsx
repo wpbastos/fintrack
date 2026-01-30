@@ -27,6 +27,9 @@ interface Merchant {
   website: string | null;
   isActive: boolean;
   notes: string | null;
+  hasAlternative: boolean;
+  alternativeName: string | null;
+  alternativeSavings: number | null;
   patterns: Pattern[];
   _count: {
     transactions: number;

@@ -1,11 +1,17 @@
 {
   "statement": {
-    "accountId": 1,
+    "account": {
+      "accountName": "RBC Chequing",
+      "accountNumber": "7890",
+      "institutionName": "Royal Bank of Canada",
+      "accountType": "Chequing",
+      "currency": "CAD"
+    },
     "periodStart": "2024-03-01",
     "periodEnd": "2024-03-31",
     "openingBalance": 5945.18,
-    "closingBalance": 4138.38,
-    "sourceFile": "2024-03_TD_Chequing.pdf",
+    "closingBalance": 6138.38,
+    "sourceFile": "2024-03_RBC_Chequing.pdf",
     "sourceType": "Statement"
   },
   "transactions": [
@@ -21,7 +27,7 @@
     },
     {
       "date": "2024-03-01",
-      "description": "RENT PAYMENT - E-TRANSFER",
+      "description": "RENT PAYMENT - E-TRANSFER OUT",
       "amount": -1595.00
     },
     {
@@ -106,7 +112,7 @@
     },
     {
       "date": "2024-03-08",
-      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "description": "TECHCORP PAYROLL DIRECT DEP",
       "amount": 2750.00
     },
     {
@@ -141,7 +147,7 @@
     },
     {
       "date": "2024-03-11",
-      "description": "ATM WITHDRAWAL - TD BANK",
+      "description": "ATM WITHDRAWAL - RBC",
       "amount": -200.00
     },
     {
@@ -158,6 +164,11 @@
       "date": "2024-03-13",
       "description": "PETROCAN 0045678 BURNABY BC",
       "amount": -72.40
+    },
+    {
+      "date": "2024-03-14",
+      "description": "CRA DIRECT DEP GST CREDIT",
+      "amount": 456.00
     },
     {
       "date": "2024-03-14",
@@ -201,7 +212,7 @@
     },
     {
       "date": "2024-03-17",
-      "description": "INTERAC REFUND - AMAZON RETURN",
+      "description": "AMAZON REFUND",
       "amount": 67.89
     },
     {
@@ -241,7 +252,7 @@
     },
     {
       "date": "2024-03-22",
-      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "description": "TECHCORP PAYROLL DIRECT DEP",
       "amount": 2750.00
     },
     {
@@ -316,12 +327,17 @@
     },
     {
       "date": "2024-03-31",
-      "description": "INTEREST EARNED",
+      "description": "RBC SAVINGS INTEREST",
       "amount": 1.23
     },
     {
       "date": "2024-03-31",
-      "description": "MONTHLY FEE REBATE",
+      "description": "RBC DIVIDEND PAYMENT",
+      "amount": 125.50
+    },
+    {
+      "date": "2024-03-31",
+      "description": "RBC MONTHLY FEE REBATE",
       "amount": 16.95
     }
   ]

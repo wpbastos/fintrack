@@ -9,6 +9,9 @@ export async function createMerchant(data: {
   defaultCategoryId?: number;
   website?: string;
   notes?: string;
+  hasAlternative?: boolean;
+  alternativeName?: string;
+  alternativeSavings?: number;
 }): Promise<{ success: boolean; error?: string; merchant?: { id: number } }> {
   try {
     const merchant = await db.merchant.create({
@@ -18,6 +21,9 @@ export async function createMerchant(data: {
         defaultCategoryId: data.defaultCategoryId || null,
         website: data.website || null,
         notes: data.notes || null,
+        hasAlternative: data.hasAlternative ?? false,
+        alternativeName: data.alternativeName || null,
+        alternativeSavings: data.alternativeSavings ?? null,
         isActive: true,
       },
     });
@@ -40,6 +46,9 @@ export async function updateMerchant(
     defaultCategoryId?: number | null;
     website?: string | null;
     notes?: string | null;
+    hasAlternative?: boolean;
+    alternativeName?: string | null;
+    alternativeSavings?: number | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {

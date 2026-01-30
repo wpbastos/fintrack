@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MerchantEditButton } from "./merchant-edit-button";
-import { Trash2 } from "lucide-react";
+import { Trash2, ArrowRight } from "lucide-react";
 import type { MerchantWithStatus } from "../types";
 
 interface MerchantsTableProps {
@@ -66,6 +66,17 @@ export function MerchantsTable({
                   {merchant.notes && (
                     <span className="text-xs text-muted-foreground truncate block">
                       {merchant.notes}
+                    </span>
+                  )}
+                  {merchant.hasAlternative && merchant.alternativeName && (
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                      <ArrowRight className="h-3 w-3" />
+                      {merchant.alternativeName}
+                      {merchant.alternativeSavings != null && (
+                        <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                          (save ${merchant.alternativeSavings})
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>

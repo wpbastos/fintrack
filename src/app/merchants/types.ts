@@ -29,6 +29,9 @@ export interface Merchant {
   defaultCategory: Category | null;
   website: string | null;
   notes: string | null;
+  hasAlternative: boolean;
+  alternativeName: string | null;
+  alternativeSavings: number | null;
   patterns?: Pattern[];
 }
 

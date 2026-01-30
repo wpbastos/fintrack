@@ -1,6 +1,12 @@
 {
   "statement": {
-    "accountId": 1,
+    "account": {
+      "accountName": "TD Chequing",
+      "accountNumber": "4567",
+      "institutionName": "TD Bank",
+      "accountType": "Chequing",
+      "currency": "CAD"
+    },
     "periodStart": "2024-02-01",
     "periodEnd": "2024-02-29",
     "openingBalance": 7235.47,
@@ -81,7 +87,7 @@
     },
     {
       "date": "2024-02-09",
-      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
       "amount": 2750.00
     },
     {
@@ -136,7 +142,7 @@
     },
     {
       "date": "2024-02-15",
-      "description": "RENT PAYMENT - E-TRANSFER",
+      "description": "RENT PAYMENT - E-TRANSFER OUT",
       "amount": -1595.00
     },
     {
@@ -166,12 +172,12 @@
     },
     {
       "date": "2024-02-21",
-      "description": "INTERAC REFUND - STORE RETURN",
+      "description": "AMAZON REFUND",
       "amount": 45.99
     },
     {
       "date": "2024-02-22",
-      "description": "PAYROLL DEPOSIT - ACME CORP",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
       "amount": 2750.00
     },
     {
@@ -216,7 +222,7 @@
     },
     {
       "date": "2024-02-28",
-      "description": "INTEREST EARNED",
+      "description": "TD SAVINGS INTEREST",
       "amount": 0.85
     },
     {
@@ -226,7 +232,7 @@
     },
     {
       "date": "2024-02-29",
-      "description": "MONTHLY FEE REBATE",
+      "description": "TD MONTHLY FEE REBATE",
       "amount": 16.95
     }
   ]
