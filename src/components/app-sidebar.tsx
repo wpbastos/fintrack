@@ -8,6 +8,8 @@ import {
   Settings,
   Wallet,
   History,
+  Store,
+  Tags,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -53,6 +55,19 @@ const navigation = [
   },
 ];
 
+const setup = [
+  {
+    title: "Categories",
+    url: "/categories",
+    icon: Tags,
+  },
+  {
+    title: "Merchants",
+    url: "/merchants",
+    icon: Store,
+  },
+];
+
 export function AppSidebar() {
   const pathname = usePathname();
 
@@ -70,6 +85,23 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Setup</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {setup.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={pathname === item.url}>
                     <Link href={item.url}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -85,9 +85,8 @@ export function ImportLogTable({ logs }: ImportLogTableProps) {
           {logs.map((log) => {
             const isExpanded = expandedId === log.id;
             return (
-              <>
+              <Fragment key={log.id}>
                 <TableRow
-                  key={log.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => toggleExpand(log.id)}
                 >
@@ -139,12 +138,10 @@ export function ImportLogTable({ logs }: ImportLogTableProps) {
                           <p className="text-sm">{getStatusBadge(log.status)}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground">Opening Balance</p>
-                          <p className="text-sm font-mono">{formatCurrency(log.openingBalance)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground">Closing Balance</p>
-                          <p className="text-sm font-mono">{formatCurrency(log.closingBalance)}</p>
+                          <p className="text-xs font-medium text-muted-foreground">Balance</p>
+                          <p className="text-sm font-mono">
+                            {formatCurrency(log.openingBalance)} → {formatCurrency(log.closingBalance)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-medium text-muted-foreground">Added</p>
@@ -158,7 +155,7 @@ export function ImportLogTable({ logs }: ImportLogTableProps) {
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </TableBody>
