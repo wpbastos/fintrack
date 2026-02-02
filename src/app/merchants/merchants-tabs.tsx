@@ -8,7 +8,9 @@ import { StatusFilter } from "./status-filter";
 
 interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
+  group: { color: string | null } | null;
 }
 
 interface Pattern {
@@ -20,10 +22,10 @@ interface Pattern {
 
 interface Merchant {
   id: number;
-  merchantName: string;
-  merchantType: string | null;
-  defaultCategoryId: number | null;
-  defaultCategory: Category | null;
+  name: string;
+  type: string | null;
+  categoryId: number | null;
+  category: Category | null;
   website: string | null;
   isActive: boolean;
   notes: string | null;
@@ -53,7 +55,6 @@ export function MerchantsTabs({ merchants }: MerchantsTabsProps) {
   const activeMerchants = merchants.filter((m) => m.isActive).length;
   const totalPatterns = merchants.reduce((sum, m) => sum + m.patterns.length, 0);
   const totalTransactions = merchants.reduce((sum, m) => sum + m._count.transactions, 0);
-  const withCategory = merchants.filter((m) => m.defaultCategoryId).length;
 
   // Filter merchants based on status
   const filteredMerchants = merchants.filter((m) =>

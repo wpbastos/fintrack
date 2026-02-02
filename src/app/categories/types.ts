@@ -1,23 +1,25 @@
 export interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
   necessityLevel: string;
   monthlyBudget: number | null;
   notes: string | null;
   isActive: boolean;
   sortOrder: number | null;
-  parentCategoryId: number | null;
+  parentId: number | null;
   groupId: number;
 }
 
 export interface CategoryWithChildren extends Category {
-  childCategories: Category[];
+  children: Category[];
 }
 
 export interface CategoryGroup {
   id: number;
-  groupName: string;
-  groupType: string;
+  name: string;
+  type: string;
+  color: string | null;
   notes: string | null;
   isActive: boolean;
   sortOrder: number | null;

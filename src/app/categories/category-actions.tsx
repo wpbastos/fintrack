@@ -13,17 +13,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { updateParentCategory, deleteParentCategory } from "./actions";
-import { BudgetPeriodsDialog } from "./budget-periods-dialog";
 import { toast } from "sonner";
 
 interface CategoryActionsProps {
   categoryId: number;
   categoryName: string;
   necessityLevel: string;
+  color: string | null;
   notes: string | null;
   hasChildren: boolean;
   isIncome: boolean;
-  monthlyBudget: number | null;
 }
 
 const necessityOptions = ["Essential", "Important", "Discretionary", "Wasteful"] as const;
@@ -35,17 +34,22 @@ const necessityStyles: Record<string, string> = {
   Wasteful: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 
+const colorPalette = [
+  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e",
+  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
+  "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#78716c",
+];
+
 export function CategoryActions({
   categoryId,
   categoryName,
   necessityLevel,
+  color,
   notes,
   hasChildren,
   isIncome,
-  monthlyBudget,
 }: CategoryActionsProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isPending, setIsPending] = useState(false);
 
   const handleDelete = async () => {
     if (!confirm(`Delete "${categoryName}"?${hasChildren ? " This will also delete all subcategories." : ""}`)) {
@@ -65,24 +69,18 @@ export function CategoryActions({
 
   return (
     <div className="flex items-center gap-1">
-      {!isIncome && (
-        <BudgetPeriodsDialog
-          categoryId={categoryId}
-          categoryName={categoryName}
-          currentBudget={monthlyBudget}
-        />
-      )}
       <CategoryEditDialog
         categoryId={categoryId}
         categoryName={categoryName}
         necessityLevel={necessityLevel}
+        color={color}
         notes={notes}
         isIncome={isIncome}
       />
       <button
         type="button"
         onClick={handleDelete}
-        disabled={isDeleting || isPending}
+        disabled={isDeleting}
         className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
         title="Delete"
       >
@@ -96,12 +94,14 @@ function CategoryEditDialog({
   categoryId,
   categoryName,
   necessityLevel,
+  color,
   notes,
   isIncome,
 }: {
   categoryId: number;
   categoryName: string;
   necessityLevel: string;
+  color: string | null;
   notes: string | null;
   isIncome: boolean;
 }) {
@@ -132,6 +132,7 @@ function CategoryEditDialog({
           categoryId={categoryId}
           categoryName={categoryName}
           necessityLevel={necessityLevel}
+          color={color}
           notes={notes}
           isIncome={isIncome}
           onSuccess={() => setOpen(false)}
@@ -146,6 +147,7 @@ function CategoryEditForm({
   categoryId,
   categoryName,
   necessityLevel,
+  color: initialColor,
   notes,
   isIncome,
   onSuccess,
@@ -154,6 +156,7 @@ function CategoryEditForm({
   categoryId: number;
   categoryName: string;
   necessityLevel: string;
+  color: string | null;
   notes: string | null;
   isIncome: boolean;
   onSuccess: () => void;
@@ -162,6 +165,7 @@ function CategoryEditForm({
   const [isPending, setIsPending] = useState(false);
   const [name, setName] = useState(categoryName);
   const [necessity, setNecessity] = useState(necessityLevel);
+  const [color, setColor] = useState(initialColor ?? "#6366f1");
   const [notesValue, setNotesValue] = useState(notes ?? "");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -178,7 +182,8 @@ function CategoryEditForm({
       categoryId,
       name.trim(),
       necessity,
-      notesValue.trim() || undefined
+      notesValue.trim() || undefined,
+      color || undefined
     );
 
     setIsPending(false);
@@ -234,6 +239,38 @@ function CategoryEditForm({
               </div>
             </div>
           )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Color</label>
+            <div className="flex flex-wrap gap-1.5">
+              {colorPalette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-6 h-6 rounded-md transition-all ${
+                    color === c ? "ring-2 ring-offset-2 ring-violet-500" : "hover:scale-110"
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                  disabled={isPending}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <div
+                className="w-8 h-8 rounded-md border"
+                style={{ backgroundColor: color }}
+              />
+              <Input
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="#000000"
+                className="w-28 font-mono text-sm"
+                disabled={isPending}
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             <label htmlFor="notes" className="text-sm font-medium">
               Notes

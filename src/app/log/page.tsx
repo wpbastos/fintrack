@@ -1,16 +1,40 @@
 import { db } from "@/lib/db";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImportLogTable } from "@/components/import-log-table";
+import { ImportTable } from "@/components/import-log-table";
 
-async function getImportLogs() {
-  return db.importLog.findMany({
+async function getImports() {
+  return db.import.findMany({
     orderBy: { createdAt: "desc" },
     take: 50,
+    select: {
+      id: true,
+      fileName: true,
+      sourceType: true,
+      accountId: true,
+      periodStart: true,
+      periodEnd: true,
+      openingBalance: true,
+      closingBalance: true,
+      transactionCount: true,
+      addedCount: true,
+      matchedCount: true,
+      unknownCount: true,
+      content: true,
+      status: true,
+      processedAt: true,
+      aiStatus: true,
+      aiStartedAt: true,
+      createdAt: true,
+      account: {
+        include: {
+          institution: true,
+        },
+      },
+    },
   });
 }
 
-export default async function ImportLogPage() {
-  const logs = await getImportLogs();
+export default async function ImportPage() {
+  const logs = await getImports();
 
   return (
     <div className="space-y-6">
@@ -21,23 +45,7 @@ export default async function ImportLogPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Import History</CardTitle>
-          <CardDescription>
-            {logs.length} imports recorded
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {logs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No imports yet. Go to Import to upload your first statement.
-            </div>
-          ) : (
-            <ImportLogTable logs={logs} />
-          )}
-        </CardContent>
-      </Card>
+      <ImportTable logs={logs} />
     </div>
   );
 }

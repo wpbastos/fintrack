@@ -25,18 +25,20 @@ import { X } from "lucide-react";
 
 interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
   necessityLevel: string;
   monthlyBudget: number | null;
   isActive: boolean;
   notes: string | null;
-  childCategories?: Category[];
+  children?: Category[];
 }
 
 interface CategoryGroup {
   id: number;
-  groupName: string;
-  groupType: string;
+  name: string;
+  type: string;
+  color: string | null;
   notes: string | null;
   categories: Category[];
 }
@@ -44,6 +46,8 @@ interface CategoryGroup {
 interface CategoriesPanelProps {
   groups: CategoryGroup[];
   allGroups: CategoryGroup[];
+  categoryStats: Record<number, { monthCount: number; totalCount: number }>;
+  budgetStats: Record<number, { spentThisMonth: number }>;
 }
 
 function getTypeBadge(type: string) {
@@ -62,8 +66,8 @@ function getTypeBadge(type: string) {
 
 // Calculate budget: if has children, sum children's budgets; otherwise use own budget
 function getEffectiveBudget(category: Category): number | null {
-  if (category.childCategories && category.childCategories.length > 0) {
-    const childBudgets = category.childCategories
+  if (category.children && category.children.length > 0) {
+    const childBudgets = category.children
       .filter((c) => c.isActive)
       .map((c) => c.monthlyBudget ?? 0);
     if (childBudgets.length === 0) return null;
@@ -75,7 +79,7 @@ function getEffectiveBudget(category: Category): number | null {
 // Count all categories including children
 function countCategories(categories: Category[]): number {
   return categories.reduce((sum, cat) => {
-    const childCount = cat.childCategories?.length ?? 0;
+    const childCount = cat.children?.length ?? 0;
     return sum + 1 + childCount;
   }, 0);
 }
@@ -87,7 +91,7 @@ function sumBudgets(categories: Category[]): number {
     .reduce((sum, cat) => sum + (getEffectiveBudget(cat) ?? 0), 0);
 }
 
-export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
+export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats }: CategoriesPanelProps) {
   const [search, setSearch] = useState("");
 
   // Filter categories based on search (status filtering is done in tabs)
@@ -97,10 +101,10 @@ export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
         categories: group.categories
           .map((cat) => ({
             ...cat,
-            childCategories: cat.childCategories?.filter((child) => {
+            children: cat.children?.filter((child) => {
               const query = search.toLowerCase();
               return (
-                child.categoryName.toLowerCase().includes(query) ||
+                child.name.toLowerCase().includes(query) ||
                 (child.notes?.toLowerCase().includes(query) ?? false)
               );
             }),
@@ -108,9 +112,9 @@ export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
           .filter((cat) => {
             const query = search.toLowerCase();
             const matchesSearch =
-              cat.categoryName.toLowerCase().includes(query) ||
+              cat.name.toLowerCase().includes(query) ||
               (cat.notes?.toLowerCase().includes(query) ?? false);
-            const hasMatchingChildren = (cat.childCategories?.length ?? 0) > 0;
+            const hasMatchingChildren = (cat.children?.length ?? 0) > 0;
             return matchesSearch || hasMatchingChildren;
           }),
       }))
@@ -158,14 +162,20 @@ export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <CardTitle>{group.groupName}</CardTitle>
-                  {getTypeBadge(group.groupType)}
+                  {group.color && (
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: group.color }}
+                    />
+                  )}
+                  <CardTitle>{group.name}</CardTitle>
+                  {getTypeBadge(group.type)}
                 </div>
-                <GroupActions groupId={group.id} groupName={group.groupName} groupType={group.groupType} notes={group.notes} />
+                <GroupActions groupId={group.id} groupName={group.name} groupType={group.type} color={group.color} notes={group.notes} />
               </div>
               <CardDescription className="flex items-center justify-between">
                 <span>{countCategories(group.categories)} categories{group.notes && ` · ${group.notes}`}</span>
-                {group.groupType !== "Income" && groupBudget > 0 && (
+                {group.type !== "Income" && groupBudget > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 dark:bg-violet-900/50 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
                     Budget: ${groupBudget.toLocaleString()}
                   </span>
@@ -183,17 +193,18 @@ export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Category</TableHead>
-                      <TableHead className="w-[12%]">Necessity</TableHead>
-                      <TableHead className="w-[16%] text-right pr-4">
-                        {group.groupType !== "Income" ? "Monthly Budget" : ""}
-                      </TableHead>
-                      <TableHead className="w-18">Status</TableHead>
+                      {group.type !== "Income" && (
+                        <TableHead className="w-[14%] text-right pr-4">Budget</TableHead>
+                      )}
+                      <TableHead className="w-[10%]">Necessity</TableHead>
+                      <TableHead className="w-[12%] text-center">Transactions</TableHead>
+                      <TableHead className="w-16">Status</TableHead>
                       <TableHead className="w-28 p-0"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {group.categories.map((category) => {
-                      const hasChildren = (category.childCategories?.length ?? 0) > 0;
+                      const hasChildren = (category.children?.length ?? 0) > 0;
                       const effectiveBudget = getEffectiveBudget(category);
 
                       return (
@@ -201,27 +212,82 @@ export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
                           {/* Parent row */}
                           <TableRow>
                             <TableCell>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{category.categoryName}</span>
-                                <NotesCell notes={category.notes} />
+                              <div className="flex items-center gap-2">
+                                {category.color && (
+                                  <div
+                                    className="w-3 h-3 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: category.color }}
+                                  />
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{category.name}</span>
+                                  <NotesCell notes={category.notes} />
+                                </div>
                               </div>
                             </TableCell>
+                            {group.type !== "Income" && (
+                              <TableCell>
+                                {hasChildren ? (
+                                  <div className="text-right pr-2 text-sm">
+                                    {(() => {
+                                      // Sum only children's spent (not parent)
+                                      const totalSpent = category.children?.reduce((s, c) => s + (budgetStats[c.id]?.spentThisMonth ?? 0), 0) ?? 0;
+                                      if (!effectiveBudget) return <span className="text-muted-foreground">—</span>;
+                                      const isOver = totalSpent > effectiveBudget;
+                                      return (
+                                        <span className={isOver ? "text-rose-600" : ""}>
+                                          ${totalSpent.toLocaleString()} <span className="text-muted-foreground">/ ${effectiveBudget.toLocaleString()}</span>
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                ) : (
+                                  <div className="text-right pr-2 text-sm">
+                                    {category.monthlyBudget ? (
+                                      (() => {
+                                        const spent = budgetStats[category.id]?.spentThisMonth ?? 0;
+                                        const isOver = spent > category.monthlyBudget;
+                                        return (
+                                          <span className={isOver ? "text-rose-600" : ""}>
+                                            ${spent.toLocaleString()} <span className="text-muted-foreground">/ ${category.monthlyBudget.toLocaleString()}</span>
+                                          </span>
+                                        );
+                                      })()
+                                    ) : (
+                                      <BudgetCell
+                                        categoryId={category.id}
+                                        initialBudget={category.monthlyBudget}
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                              </TableCell>
+                            )}
                             <TableCell>
                               <NecessityCell value={category.necessityLevel} />
                             </TableCell>
-                            <TableCell>
-                              {group.groupType !== "Income" && (
-                                hasChildren ? (
-                                  <div className="text-right pr-2 text-sm text-muted-foreground">
-                                    ${effectiveBudget?.toLocaleString() ?? "—"}
-                                  </div>
-                                ) : (
-                                  <BudgetCell
-                                    categoryId={category.id}
-                                    initialBudget={category.monthlyBudget}
-                                  />
-                                )
-                              )}
+                            <TableCell className="text-center">
+                              {(() => {
+                                // If has children, sum only children stats; otherwise use parent stats
+                                if (hasChildren) {
+                                  const childStats = category.children?.map((c) => categoryStats[c.id]).filter(Boolean) ?? [];
+                                  const monthCount = childStats.reduce((s, c) => s + (c?.monthCount ?? 0), 0);
+                                  const totalCount = childStats.reduce((s, c) => s + (c?.totalCount ?? 0), 0);
+                                  return (
+                                    <span className="text-xs">
+                                      <span className="font-medium">{monthCount}</span>
+                                      <span className="text-muted-foreground"> / {totalCount}</span>
+                                    </span>
+                                  );
+                                }
+                                const stats = categoryStats[category.id];
+                                return (
+                                  <span className="text-xs">
+                                    <span className="font-medium">{stats?.monthCount ?? 0}</span>
+                                    <span className="text-muted-foreground"> / {stats?.totalCount ?? 0}</span>
+                                  </span>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>
                               <StatusToggle
@@ -233,61 +299,87 @@ export function CategoriesPanel({ groups, allGroups }: CategoriesPanelProps) {
                               <div className="flex items-center gap-1">
                                 <CategoryActions
                                   categoryId={category.id}
-                                  categoryName={category.categoryName}
+                                  categoryName={category.name}
                                   necessityLevel={category.necessityLevel}
+                                  color={category.color}
                                   notes={category.notes}
                                   hasChildren={hasChildren}
-                                  isIncome={group.groupType === "Income"}
-                                  monthlyBudget={category.monthlyBudget}
+                                  isIncome={group.type === "Income"}
                                 />
                                 <AddChildButton
                                   parentId={category.id}
-                                  parentName={category.categoryName}
+                                  parentName={category.name}
                                 />
                               </div>
                             </TableCell>
                           </TableRow>
 
                           {/* Child rows */}
-                          {category.childCategories?.map((child) => (
-                            <TableRow key={child.id} className="bg-slate-50 dark:bg-slate-900/50">
-                              <TableCell>
-                                <div className="flex flex-col pl-6">
-                                  <span className="text-sm">↳ {child.categoryName}</span>
-                                  <div className="pl-4">
-                                    <NotesCell notes={child.notes} />
+                          {category.children?.map((child) => {
+                            const childTxnStats = categoryStats[child.id];
+                            const childBudgetSpent = budgetStats[child.id]?.spentThisMonth ?? 0;
+                            return (
+                              <TableRow key={child.id} className="bg-slate-50 dark:bg-slate-900/50">
+                                <TableCell>
+                                  <div className="flex items-center gap-2 pl-6">
+                                    {child.color && (
+                                      <div
+                                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: child.color }}
+                                      />
+                                    )}
+                                    <div className="flex flex-col">
+                                      <span className="text-sm">↳ {child.name}</span>
+                                      <div className="pl-4">
+                                        <NotesCell notes={child.notes} />
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <NecessityCell value={child.necessityLevel} />
-                              </TableCell>
-                              <TableCell>
-                                {group.groupType !== "Income" && (
-                                  <BudgetCell
-                                    categoryId={child.id}
-                                    initialBudget={child.monthlyBudget}
-                                  />
+                                </TableCell>
+                                {group.type !== "Income" && (
+                                  <TableCell>
+                                    {child.monthlyBudget ? (
+                                      <div className="text-right pr-2 text-sm">
+                                        <span className={childBudgetSpent > child.monthlyBudget ? "text-rose-600" : ""}>
+                                          ${childBudgetSpent.toLocaleString()} <span className="text-muted-foreground">/ ${child.monthlyBudget.toLocaleString()}</span>
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <BudgetCell
+                                        categoryId={child.id}
+                                        initialBudget={child.monthlyBudget}
+                                      />
+                                    )}
+                                  </TableCell>
                                 )}
-                              </TableCell>
-                              <TableCell>
-                                <StatusToggle
-                                  categoryId={child.id}
-                                  initialValue={child.isActive}
-                                />
-                              </TableCell>
-                              <TableCell className="p-0 pr-1">
-                                <ChildActions
-                                  categoryId={child.id}
-                                  categoryName={child.categoryName}
-                                  necessityLevel={child.necessityLevel}
-                                  notes={child.notes}
-                                  isIncome={group.groupType === "Income"}
-                                  monthlyBudget={child.monthlyBudget}
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                                <TableCell>
+                                  <NecessityCell value={child.necessityLevel} />
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className="text-xs">
+                                    <span className="font-medium">{childTxnStats?.monthCount ?? 0}</span>
+                                    <span className="text-muted-foreground"> / {childTxnStats?.totalCount ?? 0}</span>
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <StatusToggle
+                                    categoryId={child.id}
+                                    initialValue={child.isActive}
+                                  />
+                                </TableCell>
+                                <TableCell className="p-0 pr-1">
+                                  <ChildActions
+                                    categoryId={child.id}
+                                    categoryName={child.name}
+                                    necessityLevel={child.necessityLevel}
+                                    color={child.color}
+                                    notes={child.notes}
+                                    isIncome={group.type === "Income"}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </Fragment>
                       );
                     })}

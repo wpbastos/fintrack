@@ -34,7 +34,7 @@ export function CategorySelect({ categories, value, onChange }: CategorySelectPr
           <optgroup key={groupName} label={groupName}>
             {cats.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.categoryName}
+                {cat.name}
               </option>
             ))}
           </optgroup>

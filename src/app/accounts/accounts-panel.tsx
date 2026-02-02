@@ -40,8 +40,8 @@ function getTypeBadge(type: string) {
 
 interface Institution {
   id: number;
-  institutionName: string;
-  institutionType: string;
+  name: string;
+  type: string;
   isActive: boolean;
 }
 
@@ -54,19 +54,19 @@ interface Person {
 
 interface Account {
   id: number;
-  accountName: string;
-  accountNumber: string | null;
+  name: string;
+  number: string | null;
   institutionId: number | null;
   institution: Institution | null;
-  accountType: string;
-  accountNickname: string | null;
+  type: string;
+  nickname: string | null;
   currency: string;
   creditLimit: number | null;
   interestRate: number | null;
   billingCycleDay: number | null;
   isJoint: boolean;
-  primaryHolderId: number | null;
-  primaryHolder: Person | null;
+  ownerId: number | null;
+  owner: Person | null;
   isActive: boolean;
   notes: string | null;
 }
@@ -86,10 +86,10 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
     ? accounts.filter((a) => {
         const query = search.toLowerCase();
         return (
-          a.accountName.toLowerCase().includes(query) ||
-          (a.accountNickname?.toLowerCase().includes(query) ?? false) ||
-          (a.institution?.institutionName.toLowerCase().includes(query) ?? false) ||
-          (a.primaryHolder?.name.toLowerCase().includes(query) ?? false) ||
+          a.name.toLowerCase().includes(query) ||
+          (a.nickname?.toLowerCase().includes(query) ?? false) ||
+          (a.institution?.name.toLowerCase().includes(query) ?? false) ||
+          (a.owner?.name.toLowerCase().includes(query) ?? false) ||
           (a.notes?.toLowerCase().includes(query) ?? false)
         );
       })
@@ -107,7 +107,7 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
   };
 
   const handleDelete = async (account: Account) => {
-    if (!confirm(`Are you sure you want to delete "${account.accountName}"?`)) {
+    if (!confirm(`Are you sure you want to delete "${account.name}"?`)) {
       return;
     }
 
@@ -214,15 +214,15 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
                   <TableRow key={account.id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{account.accountName}</span>
-                        {account.accountNickname && (
+                        <span className="font-medium">{account.name}</span>
+                        {account.nickname && (
                           <span className="text-xs text-muted-foreground">
-                            {account.accountNickname}
+                            {account.nickname}
                           </span>
                         )}
-                        {account.accountNumber && (
+                        {account.number && (
                           <span className="text-xs text-muted-foreground">
-                            ****{account.accountNumber}
+                            ****{account.number}
                           </span>
                         )}
                         {(account.creditLimit || account.interestRate || account.billingCycleDay) && (
@@ -244,9 +244,9 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
                     <TableCell>
                       {account.institution ? (
                         <div className="flex flex-col">
-                          <span>{account.institution.institutionName}</span>
+                          <span>{account.institution.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            {account.institution.institutionType}
+                            {account.institution.type}
                           </span>
                         </div>
                       ) : (
@@ -255,7 +255,7 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {getTypeBadge(account.accountType)}
+                        {getTypeBadge(account.type)}
                         {account.isJoint && (
                           <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
                             Joint
@@ -264,12 +264,12 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {account.primaryHolder ? (
+                      {account.owner ? (
                         <div className="flex flex-col">
-                          <span>{account.primaryHolder.name}</span>
-                          {account.primaryHolder.email && (
+                          <span>{account.owner.name}</span>
+                          {account.owner.email && (
                             <span className="text-xs text-muted-foreground">
-                              {account.primaryHolder.email}
+                              {account.owner.email}
                             </span>
                           )}
                         </div>

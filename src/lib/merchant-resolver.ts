@@ -4,6 +4,9 @@
  */
 
 import { db } from './db';
+import { createLogger } from './logger';
+
+const log = createLogger("Merchant");
 
 /**
  * Resolve merchant ID from a transaction description
@@ -65,7 +68,7 @@ export async function resolveMerchant(description: string): Promise<{
   merchantName: string;
   pattern: string;
   priority: number;
-  defaultCategoryId: number | null;
+  categoryId: number | null;
 } | null> {
   if (!description) return null;
 
@@ -92,16 +95,18 @@ export async function resolveMerchant(description: string): Promise<{
   for (const patternEntry of sortedPatterns) {
     const normalizedPattern = patternEntry.pattern.toUpperCase();
     if (normalizedDescription.includes(normalizedPattern)) {
+      log.debug("MATCH", `"${description.substring(0, 30)}..." -> ${patternEntry.merchant.name} (pattern: ${patternEntry.pattern})`);
       return {
         merchantId: patternEntry.merchantId,
-        merchantName: patternEntry.merchant.merchantName,
+        merchantName: patternEntry.merchant.name,
         pattern: patternEntry.pattern,
         priority: patternEntry.priority,
-        defaultCategoryId: patternEntry.merchant.defaultCategoryId,
+        categoryId: patternEntry.merchant.categoryId,
       };
     }
   }
 
+  log.debug("NO_MATCH", `"${description.substring(0, 40)}..." - no pattern matched`);
   return null;
 }
 
@@ -180,30 +185,36 @@ export async function createMerchantWithPattern(
   merchantName: string,
   sampleDescription: string,
   options?: {
-    defaultCategoryId?: number;
-    merchantType?: string;
+    categoryId?: number;
+    type?: string;
     priority?: number;
   }
 ): Promise<{ merchantId: number; pattern: string }> {
+  log.debug("CREATE", `Creating merchant: ${merchantName}`);
+
   // Check if merchant exists
   let merchant = await db.merchant.findUnique({
-    where: { merchantName },
+    where: { name: merchantName },
   });
 
   // Create merchant if doesn't exist
   if (!merchant) {
     merchant = await db.merchant.create({
       data: {
-        merchantName,
-        defaultCategoryId: options?.defaultCategoryId,
-        merchantType: options?.merchantType,
+        name: merchantName,
+        categoryId: options?.categoryId,
+        type: options?.type,
         isActive: true,
       },
     });
+    log.info("CREATE", `Created new merchant: ${merchantName} (ID: ${merchant.id})`);
+  } else {
+    log.debug("CREATE", `Merchant already exists: ${merchantName} (ID: ${merchant.id})`);
   }
 
   // Extract pattern from sample description
   const pattern = extractMerchantPattern(sampleDescription);
+  log.debug("PATTERN", `Extracted pattern: "${pattern}" from "${sampleDescription.substring(0, 40)}..."`);
 
   // Create pattern if doesn't exist
   const existingPattern = await db.merchantPattern.findUnique({
@@ -218,6 +229,9 @@ export async function createMerchantWithPattern(
         priority: options?.priority || 0,
       },
     });
+    log.info("PATTERN", `Created new pattern: "${pattern}" for ${merchantName}`);
+  } else {
+    log.debug("PATTERN", `Pattern already exists: "${pattern}"`);
   }
 
   return {

@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { getIncomeHistory, addIncomeChange, deleteIncomeChange } from "./actions";
+import { getIncomeHistory, addPayslip, deletePayslip } from "./actions";
 import { toast } from "sonner";
 import { Receipt, Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 
@@ -27,7 +27,7 @@ const PAY_TYPES = [
   "Other",
 ];
 
-interface IncomeChange {
+interface Payslip {
   id: number;
   effectiveDate: Date;
   previousGross: number | null;
@@ -39,25 +39,25 @@ interface IncomeChange {
 }
 
 interface IncomeHistoryDialogProps {
-  incomeSourceId: number;
-  sourceName: string;
+  incomeId: number;
+  name: string;
   currentGross: number | null;
   currentNet: number | null;
 }
 
 export function IncomeHistoryDialog({
-  incomeSourceId,
-  sourceName,
+  incomeId,
+  name,
   currentGross,
   currentNet,
 }: IncomeHistoryDialogProps) {
   const [open, setOpen] = useState(false);
-  const [history, setHistory] = useState<IncomeChange[]>([]);
+  const [history, setHistory] = useState<Payslip[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadHistory = async () => {
     setLoading(true);
-    const data = await getIncomeHistory(incomeSourceId);
+    const data = await getIncomeHistory(incomeId);
     setHistory(data);
     setLoading(false);
   };
@@ -67,14 +67,14 @@ export function IncomeHistoryDialog({
       loadHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, incomeSourceId]);
+  }, [open, incomeId]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this payslip?")) {
       return;
     }
 
-    const result = await deleteIncomeChange(id);
+    const result = await deletePayslip(id);
     if (result.success) {
       toast.success("Payslip deleted");
       loadHistory();
@@ -116,7 +116,7 @@ export function IncomeHistoryDialog({
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Payslips - {sourceName}</DialogTitle>
+          <DialogTitle>Payslips - {name}</DialogTitle>
           <DialogDescription>
             Current: {currentGross ? formatCurrency(currentGross) : "N/A"} gross /{" "}
             {currentNet ? formatCurrency(currentNet) : "N/A"} net per pay
@@ -126,8 +126,8 @@ export function IncomeHistoryDialog({
         <div className="space-y-4 py-4">
           {/* Add Payslip Button - opens separate dialog */}
           <AddPayslipDialog
-            incomeSourceId={incomeSourceId}
-            sourceName={sourceName}
+            incomeId={incomeId}
+            name={name}
             onSuccess={loadHistory}
           />
 
@@ -148,7 +148,7 @@ export function IncomeHistoryDialog({
                   if (!acc[year]) acc[year] = [];
                   acc[year].push(record);
                   return acc;
-                }, {} as Record<number, IncomeChange[]>)
+                }, {} as Record<number, Payslip[]>)
               )
                 .sort(([a], [b]) => Number(b) - Number(a))
                 .map(([year, records]) => (
@@ -251,12 +251,12 @@ export function IncomeHistoryDialog({
 
 // Separate dialog for adding a payslip
 function AddPayslipDialog({
-  incomeSourceId,
-  sourceName,
+  incomeId,
+  name,
   onSuccess,
 }: {
-  incomeSourceId: number;
-  sourceName: string;
+  incomeId: number;
+  name: string;
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -301,7 +301,7 @@ function AddPayslipDialog({
     }
 
     setSaving(true);
-    const result = await addIncomeChange(incomeSourceId, {
+    const result = await addPayslip(incomeId, {
       effectiveDate: new Date(payDate),
       newGross: grossValue,
       newNet: netValue,
@@ -312,7 +312,15 @@ function AddPayslipDialog({
     setSaving(false);
 
     if (result.success) {
-      toast.success("Payslip added");
+      if (result.suggestNewPosition && result.increasePercent) {
+        // Significant salary increase - suggest creating new position
+        toast.success(
+          `Payslip added. Salary increased ${result.increasePercent}% - consider creating a new position to track this promotion.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success("Payslip added");
+      }
       setOpen(false);
       onSuccess();
     } else {
@@ -334,7 +342,7 @@ function AddPayslipDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Payslip</DialogTitle>
-          <DialogDescription>{sourceName}</DialogDescription>
+          <DialogDescription>{name}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

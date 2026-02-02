@@ -12,15 +12,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  createIncomeSource,
-  updateIncomeSource,
-  addIncomeSourcePattern,
-  updateIncomeSourcePattern,
-  deleteIncomeSourcePattern,
-  getIncomeSourcePatterns,
+  createIncome,
+  updateIncome,
+  addIncomePattern,
+  updateIncomePattern,
+  deleteIncomePattern,
+  getIncomePatterns,
   getPersons,
   getIncomeCategories,
   getAccounts,
+  getPositions,
 } from "./actions";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
@@ -42,7 +43,7 @@ interface Pattern {
 
 interface Category {
   id: number;
-  categoryName: string;
+  name: string;
   groupName: string;
 }
 
@@ -53,26 +54,40 @@ interface PersonOption {
 
 interface AccountOption {
   id: number;
-  accountName: string;
+  name: string;
   institutionName: string | null;
 }
 
-interface IncomeSource {
+interface PositionOption {
   id: number;
-  sourceName: string;
+  title: string;
+  department: string | null;
+  employerId: number;
+  employerName: string;
+}
+
+interface Income {
+  id: number;
+  name: string;
+  type: string;
+  positionId: number | null;
+  position: {
+    id: number;
+    title: string;
+    department: string | null;
+    employer: { id: number; name: string; website: string | null };
+  } | null;
   personId: number | null;
   person: { id: number; name: string } | null;
-  defaultCategoryId: number | null;
-  defaultCategory: { id: number; categoryName: string } | null;
+  categoryId: number | null;
+  category: { id: number; name: string } | null;
   depositAccountId: number | null;
-  depositAccount: { id: number; accountName: string } | null;
+  depositAccount: { id: number; name: string } | null;
   payFrequency: string | null;
-  position: string | null;
-  industry: string | null;
-  location: string | null;
-  website: string | null;
   startDate: Date | null;
   endDate: Date | null;
+  initialGross: number | null;
+  initialNet: number | null;
   currentGross: number | null;
   currentNet: number | null;
   isActive: boolean;
@@ -80,12 +95,12 @@ interface IncomeSource {
   patterns: Pattern[];
 }
 
-interface IncomeSourceDialogProps {
-  incomeSource?: IncomeSource;
+interface IncomeDialogProps {
+  income?: Income;
   trigger?: React.ReactNode;
 }
 
-export function IncomeSourceDialog({ incomeSource, trigger }: IncomeSourceDialogProps) {
+export function IncomeDialog({ income, trigger }: IncomeDialogProps) {
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
 
@@ -107,9 +122,9 @@ export function IncomeSourceDialog({ incomeSource, trigger }: IncomeSourceDialog
         )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <IncomeSourceForm
+        <IncomeForm
           key={formKey}
-          incomeSource={incomeSource}
+          income={income}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />
@@ -118,39 +133,37 @@ export function IncomeSourceDialog({ incomeSource, trigger }: IncomeSourceDialog
   );
 }
 
-function IncomeSourceForm({
-  incomeSource,
+function IncomeForm({
+  income,
   onSuccess,
   onCancel,
 }: {
-  incomeSource?: IncomeSource;
+  income?: Income;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
   const [isPending, setIsPending] = useState(false);
 
   // Form state
-  const [sourceName, setSourceName] = useState(incomeSource?.sourceName || "");
-  const [personId, setPersonId] = useState<number | "">(incomeSource?.personId || "");
-  const [categoryId, setCategoryId] = useState<number | "">(incomeSource?.defaultCategoryId || "");
-  const [accountId, setAccountId] = useState<number | "">(incomeSource?.depositAccountId || "");
-  const [payFrequency, setPayFrequency] = useState(incomeSource?.payFrequency || "");
-  const [position, setPosition] = useState(incomeSource?.position || "");
-  const [industry, setIndustry] = useState(incomeSource?.industry || "");
-  const [location, setLocation] = useState(incomeSource?.location || "");
-  const [website, setWebsite] = useState(incomeSource?.website || "");
+  const [name, setSourceName] = useState(income?.name || "");
+  const [personId, setPersonId] = useState<number | "">(income?.personId || "");
+  const [categoryId, setCategoryId] = useState<number | "">(income?.categoryId || "");
+  const [accountId, setAccountId] = useState<number | "">(income?.depositAccountId || "");
+  const [payFrequency, setPayFrequency] = useState(income?.payFrequency || "");
+  const [positionId, setPositionId] = useState<number | "">(income?.positionId || "");
   const [startDate, setStartDate] = useState(
-    incomeSource?.startDate ? new Date(incomeSource.startDate).toISOString().split("T")[0] : ""
+    income?.startDate ? new Date(income.startDate).toISOString().split("T")[0] : ""
   );
-  const [notes, setNotes] = useState(incomeSource?.notes || "");
+  const [notes, setNotes] = useState(income?.notes || "");
 
   // Lookup data
   const [persons, setPersons] = useState<PersonOption[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const [positions, setPositions] = useState<PositionOption[]>([]);
 
   // Pattern state
-  const [patterns, setPatterns] = useState<Pattern[]>(incomeSource?.patterns || []);
+  const [patterns, setPatterns] = useState<Pattern[]>(income?.patterns || []);
   const [newPattern, setNewPattern] = useState("");
   const [newPatternPriority, setNewPatternPriority] = useState(10);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
@@ -160,15 +173,16 @@ function IncomeSourceForm({
   // Pending patterns for new income sources (stored in memory until save)
   const [pendingPatterns, setPendingPatterns] = useState<{ pattern: string; priority: number }[]>([]);
 
-  const isEdit = !!incomeSource;
+  const isEdit = !!income;
 
   // Load lookup data on mount
   useEffect(() => {
-    Promise.all([getPersons(), getIncomeCategories(), getAccounts()]).then(
-      ([ch, cat, acc]) => {
+    Promise.all([getPersons(), getIncomeCategories(), getAccounts(), getPositions()]).then(
+      ([ch, cat, acc, pos]) => {
         setPersons(ch);
         setCategories(cat);
         setAccounts(acc);
+        setPositions(pos);
       }
     );
   }, []);
@@ -176,7 +190,7 @@ function IncomeSourceForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!sourceName.trim()) {
+    if (!name.trim()) {
       toast.error("Source name is required");
       return;
     }
@@ -184,16 +198,13 @@ function IncomeSourceForm({
     setIsPending(true);
 
     if (isEdit) {
-      const result = await updateIncomeSource(incomeSource.id, {
-        sourceName: sourceName.trim(),
+      const result = await updateIncome(income.id, {
+        name: name.trim(),
         personId: personId ? (personId as number) : null,
-        defaultCategoryId: categoryId ? (categoryId as number) : null,
+        categoryId: categoryId ? (categoryId as number) : null,
         depositAccountId: accountId ? (accountId as number) : null,
         payFrequency: payFrequency || null,
-        position: position.trim() || null,
-        industry: industry.trim() || null,
-        location: location.trim() || null,
-        website: website.trim() || null,
+        positionId: positionId ? (positionId as number) : null,
         startDate: startDate ? new Date(startDate) : null,
         notes: notes.trim() || null,
       });
@@ -207,24 +218,21 @@ function IncomeSourceForm({
         toast.error(result.error || "Failed to update income source");
       }
     } else {
-      const result = await createIncomeSource({
-        sourceName: sourceName.trim(),
+      const result = await createIncome({
+        name: name.trim(),
         personId: personId ? (personId as number) : undefined,
-        defaultCategoryId: categoryId ? (categoryId as number) : undefined,
+        categoryId: categoryId ? (categoryId as number) : undefined,
         depositAccountId: accountId ? (accountId as number) : undefined,
         payFrequency: payFrequency || undefined,
-        position: position.trim() || undefined,
-        industry: industry.trim() || undefined,
-        location: location.trim() || undefined,
-        website: website.trim() || undefined,
+        positionId: positionId ? (positionId as number) : undefined,
         startDate: startDate ? new Date(startDate) : undefined,
         notes: notes.trim() || undefined,
       });
 
-      if (result.success && result.incomeSource) {
+      if (result.success && result.income) {
         // Add pending patterns to the newly created income source
         for (const p of pendingPatterns) {
-          await addIncomeSourcePattern(result.incomeSource.id, p.pattern, p.priority);
+          await addIncomePattern(result.income.id, p.pattern, p.priority);
         }
         setIsPending(false);
         toast.success("Income source created");
@@ -239,10 +247,10 @@ function IncomeSourceForm({
   const handleAddPattern = async () => {
     if (!newPattern.trim()) return;
 
-    if (isEdit && incomeSource) {
+    if (isEdit && income) {
       // Edit mode: save directly to database
-      const result = await addIncomeSourcePattern(
-        incomeSource.id,
+      const result = await addIncomePattern(
+        income.id,
         newPattern.trim(),
         newPatternPriority
       );
@@ -279,7 +287,7 @@ function IncomeSourceForm({
   };
 
   const handleUpdatePattern = async (patternId: number) => {
-    const result = await updateIncomeSourcePattern(patternId, {
+    const result = await updateIncomePattern(patternId, {
       pattern: editingPatternValue.trim(),
       priority: editingPatternPriority,
     });
@@ -304,7 +312,7 @@ function IncomeSourceForm({
   };
 
   const handleDeletePattern = async (patternId: number) => {
-    const result = await deleteIncomeSourcePattern(patternId);
+    const result = await deleteIncomePattern(patternId);
     if (result.success) {
       setPatterns(patterns.filter((p) => p.id !== patternId));
       toast.success("Pattern deleted");
@@ -314,8 +322,8 @@ function IncomeSourceForm({
   };
 
   const refreshPatterns = async () => {
-    if (incomeSource) {
-      const fresh = await getIncomeSourcePatterns(incomeSource.id);
+    if (income) {
+      const fresh = await getIncomePatterns(income.id);
       setPatterns(fresh);
     }
   };
@@ -329,6 +337,10 @@ function IncomeSourceForm({
     },
     {} as Record<string, typeof categories>
   );
+
+  // Check if selected category belongs to "Employer" group
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const isEmployerCategory = selectedCategory?.groupName === "Employer";
 
   return (
     <>
@@ -345,12 +357,12 @@ function IncomeSourceForm({
           {/* Row 1: Name + Person */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="sourceName" className="text-sm font-medium">
+              <label htmlFor="name" className="text-sm font-medium">
                 Source Name *
               </label>
               <Input
-                id="sourceName"
-                value={sourceName}
+                id="name"
+                value={name}
                 onChange={(e) => setSourceName(e.target.value)}
                 placeholder="e.g., TechCorp Inc., CRA"
                 autoFocus
@@ -385,7 +397,15 @@ function IncomeSourceForm({
               <select
                 id="category"
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value ? parseInt(e.target.value) : "")}
+                onChange={(e) => {
+                  const newCategoryId = e.target.value ? parseInt(e.target.value) : "";
+                  setCategoryId(newCategoryId);
+                  // Clear position if switching to non-Employer category
+                  const newCategory = categories.find((c) => c.id === newCategoryId);
+                  if (newCategory?.groupName !== "Employer") {
+                    setPositionId("");
+                  }
+                }}
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-violet-300 dark:bg-slate-800 dark:border-slate-700"
               >
                 <option value="">Select category...</option>
@@ -393,7 +413,7 @@ function IncomeSourceForm({
                   <optgroup key={groupName} label={groupName}>
                     {cats.map((cat) => (
                       <option key={cat.id} value={cat.id}>
-                        {cat.categoryName}
+                        {cat.name}
                       </option>
                     ))}
                   </optgroup>
@@ -413,7 +433,7 @@ function IncomeSourceForm({
                 <option value="">Select account...</option>
                 {accounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
-                    {acc.accountName}
+                    {acc.name}
                     {acc.institutionName && ` (${acc.institutionName})`}
                   </option>
                 ))}
@@ -421,8 +441,8 @@ function IncomeSourceForm({
             </div>
           </div>
 
-          {/* Row 3: Pay Frequency + Position */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Row 3: Pay Frequency + Position (Position only for Employer category) */}
+          <div className={`grid gap-4 ${isEmployerCategory ? "grid-cols-2" : "grid-cols-2"}`}>
             <div className="space-y-2">
               <label htmlFor="payFrequency" className="text-sm font-medium">
                 Pay Frequency
@@ -441,58 +461,41 @@ function IncomeSourceForm({
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="position" className="text-sm font-medium">
-                Position
-              </label>
-              <Input
-                id="position"
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                placeholder="e.g., Software Engineer"
-              />
-            </div>
+            {isEmployerCategory && (
+              <div className="space-y-2">
+                <label htmlFor="position" className="text-sm font-medium">
+                  Position
+                </label>
+                <select
+                  id="position"
+                  value={positionId}
+                  onChange={(e) => setPositionId(e.target.value ? parseInt(e.target.value) : "")}
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-violet-300 dark:bg-slate-800 dark:border-slate-700"
+                >
+                  <option value="">Select position...</option>
+                  {Object.entries(
+                    positions.reduce((acc, pos) => {
+                      if (!acc[pos.employerName]) acc[pos.employerName] = [];
+                      acc[pos.employerName].push(pos);
+                      return acc;
+                    }, {} as Record<string, typeof positions>)
+                  ).map(([employerName, employerPositions]) => (
+                    <optgroup key={employerName} label={employerName}>
+                      {employerPositions.map((pos) => (
+                        <option key={pos.id} value={pos.id}>
+                          {pos.title}
+                          {pos.department && ` (${pos.department})`}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* Row 4: Industry + Location */}
+          {/* Row 4: Start Date */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="industry" className="text-sm font-medium">
-                Industry
-              </label>
-              <Input
-                id="industry"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                placeholder="e.g., Technology"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="location" className="text-sm font-medium">
-                Location
-              </label>
-              <Input
-                id="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g., Toronto, ON"
-              />
-            </div>
-          </div>
-
-          {/* Row 5: Website + Start Date */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="website" className="text-sm font-medium">
-                Website
-              </label>
-              <Input
-                id="website"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
             <div className="space-y-2">
               <label htmlFor="startDate" className="text-sm font-medium">
                 Start Date
@@ -684,10 +687,10 @@ function IncomeSourceForm({
 }
 
 // Edit button component for table rows
-export function IncomeSourceEditButton({ incomeSource }: { incomeSource: IncomeSource }) {
+export function IncomeEditButton({ income }: { income: Income }) {
   return (
-    <IncomeSourceDialog
-      incomeSource={incomeSource}
+    <IncomeDialog
+      income={income}
       trigger={
         <button
           type="button"

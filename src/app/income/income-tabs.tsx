@@ -1,14 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Wallet } from "lucide-react";
+import { Wallet, Building2, Briefcase } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IncomePanel } from "./income-panel";
+import { PositionsPanel } from "./positions-panel";
+import { EmployersPanel } from "./employers-panel";
 import { StatusFilter } from "./status-filter";
+
+interface CategoryGroup {
+  id: number;
+  name: string;
+  color: string | null;
+}
 
 interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
+  group: CategoryGroup | null;
 }
 
 interface Person {
@@ -18,7 +28,18 @@ interface Person {
 
 interface Account {
   id: number;
-  accountName: string;
+  name: string;
+}
+
+interface Position {
+  id: number;
+  title: string;
+  department: string | null;
+  employer: {
+    id: number;
+    name: string;
+    website: string | null;
+  };
 }
 
 interface Pattern {
@@ -28,22 +49,23 @@ interface Pattern {
   notes: string | null;
 }
 
-interface IncomeSource {
+interface Income {
   id: number;
-  sourceName: string;
+  name: string;
+  type: string;
+  positionId: number | null;
+  position: Position | null;
   personId: number | null;
   person: Person | null;
-  defaultCategoryId: number | null;
-  defaultCategory: Category | null;
+  categoryId: number | null;
+  category: Category | null;
   depositAccountId: number | null;
   depositAccount: Account | null;
   payFrequency: string | null;
-  position: string | null;
-  industry: string | null;
-  location: string | null;
-  website: string | null;
   startDate: Date | null;
   endDate: Date | null;
+  initialGross: number | null;
+  initialNet: number | null;
   currentGross: number | null;
   currentNet: number | null;
   isActive: boolean;
@@ -54,11 +76,48 @@ interface IncomeSource {
   };
 }
 
-interface IncomeTabsProps {
-  incomeSources: IncomeSource[];
+interface PositionWithCount {
+  id: number;
+  title: string;
+  department: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  isActive: boolean;
+  notes: string | null;
+  employer: {
+    id: number;
+    name: string;
+    website: string | null;
+  };
+  _count: {
+    incomes: number;
+  };
 }
 
-const tabs = [{ id: "income", label: "Income Sources", icon: Wallet }] as const;
+interface EmployerWithCount {
+  id: number;
+  name: string;
+  industry: string | null;
+  location: string | null;
+  website: string | null;
+  isActive: boolean;
+  notes: string | null;
+  _count: {
+    positions: number;
+  };
+}
+
+interface IncomeTabsProps {
+  incomeSources: Income[];
+  positions: PositionWithCount[];
+  employers: EmployerWithCount[];
+}
+
+const tabs = [
+  { id: "income", label: "Income", icon: Wallet },
+  { id: "positions", label: "Positions", icon: Briefcase },
+  { id: "employers", label: "Employers", icon: Building2 },
+] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
@@ -73,7 +132,7 @@ const FREQUENCY_MULTIPLIERS: Record<string, number> = {
   Irregular: 12,
 };
 
-export function IncomeTabs({ incomeSources }: IncomeTabsProps) {
+export function IncomeTabs({ incomeSources, positions, employers }: IncomeTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("income");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
 
@@ -115,6 +174,24 @@ export function IncomeTabs({ incomeSources }: IncomeTabsProps) {
   const filteredSources = incomeSources.filter((s) =>
     statusFilter === "active" ? s.isActive : !s.isActive
   );
+
+  // Filter positions based on status
+  const filteredPositions = positions.filter((p) =>
+    statusFilter === "active" ? p.isActive : !p.isActive
+  );
+
+  // Filter employers based on status
+  const filteredEmployers = employers.filter((e) =>
+    statusFilter === "active" ? e.isActive : !e.isActive
+  );
+
+  // Get count for current tab
+  const getTabCount = (tabId: TabId) => {
+    if (tabId === "income") return filteredSources.length;
+    if (tabId === "positions") return filteredPositions.length;
+    if (tabId === "employers") return filteredEmployers.length;
+    return 0;
+  };
 
   return (
     <>
@@ -186,7 +263,7 @@ export function IncomeTabs({ incomeSources }: IncomeTabsProps) {
                       ${isActive ? "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200" : "bg-muted"}
                     `}
                   >
-                    {filteredSources.length}
+                    {getTabCount(tab.id)}
                   </span>
                 </button>
               );
@@ -200,6 +277,8 @@ export function IncomeTabs({ incomeSources }: IncomeTabsProps) {
       {/* Tab Content */}
       <div>
         {activeTab === "income" && <IncomePanel incomeSources={filteredSources} />}
+        {activeTab === "positions" && <PositionsPanel positions={filteredPositions} />}
+        {activeTab === "employers" && <EmployersPanel employers={filteredEmployers} />}
       </div>
     </>
   );

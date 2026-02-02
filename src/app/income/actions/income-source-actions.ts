@@ -3,34 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
-export async function createIncomeSource(data: {
-  sourceName: string;
+export async function createIncome(data: {
+  name: string;
+  type?: string;
+  positionId?: number;
   personId?: number;
-  defaultCategoryId?: number;
+  categoryId?: number;
   depositAccountId?: number;
   payFrequency?: string;
-  position?: string;
-  industry?: string;
-  location?: string;
-  website?: string;
   startDate?: Date;
   currentGross?: number;
   currentNet?: number;
   notes?: string;
-}): Promise<{ success: boolean; error?: string; incomeSource?: { id: number } }> {
+}): Promise<{ success: boolean; error?: string; income?: { id: number } }> {
   try {
-    const incomeSource = await db.incomeSource.create({
+    const income = await db.income.create({
       data: {
-        sourceName: data.sourceName,
+        name: data.name,
+        type: data.type || "Employment",
+        positionId: data.positionId || null,
         personId: data.personId || null,
-        defaultCategoryId: data.defaultCategoryId || null,
+        categoryId: data.categoryId || null,
         depositAccountId: data.depositAccountId || null,
         payFrequency: data.payFrequency || null,
-        position: data.position || null,
-        industry: data.industry || null,
-        location: data.location || null,
-        website: data.website || null,
         startDate: data.startDate || null,
+        initialGross: data.currentGross || null,
+        initialNet: data.currentNet || null,
         currentGross: data.currentGross || null,
         currentNet: data.currentNet || null,
         isActive: true,
@@ -39,9 +37,9 @@ export async function createIncomeSource(data: {
     });
 
     if (data.currentGross && data.currentNet) {
-      await db.incomeChange.create({
+      await db.payslip.create({
         data: {
-          incomeSourceId: incomeSource.id,
+          incomeId: income.id,
           effectiveDate: data.startDate || new Date(),
           newGross: data.currentGross,
           newNet: data.currentNet,
@@ -51,7 +49,7 @@ export async function createIncomeSource(data: {
     }
 
     revalidatePath("/income");
-    return { success: true, incomeSource: { id: incomeSource.id } };
+    return { success: true, income: { id: income.id } };
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") {
       return { success: false, error: "Income source with this name already exists" };
@@ -60,18 +58,16 @@ export async function createIncomeSource(data: {
   }
 }
 
-export async function updateIncomeSource(
-  incomeSourceId: number,
+export async function updateIncome(
+  incomeId: number,
   data: {
-    sourceName?: string;
+    name?: string;
+    type?: string | null;
+    positionId?: number | null;
     personId?: number | null;
-    defaultCategoryId?: number | null;
+    categoryId?: number | null;
     depositAccountId?: number | null;
     payFrequency?: string | null;
-    position?: string | null;
-    industry?: string | null;
-    location?: string | null;
-    website?: string | null;
     startDate?: Date | null;
     endDate?: Date | null;
     currentGross?: number | null;
@@ -80,9 +76,25 @@ export async function updateIncomeSource(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await db.incomeSource.update({
-      where: { id: incomeSourceId },
-      data,
+    // Build update data, only including fields that are provided
+    const updateData: Parameters<typeof db.income.update>[0]["data"] = {};
+
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.type !== undefined) updateData.type = data.type ?? undefined;
+    if (data.positionId !== undefined) updateData.positionId = data.positionId;
+    if (data.personId !== undefined) updateData.personId = data.personId;
+    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
+    if (data.depositAccountId !== undefined) updateData.depositAccountId = data.depositAccountId;
+    if (data.payFrequency !== undefined) updateData.payFrequency = data.payFrequency;
+    if (data.startDate !== undefined) updateData.startDate = data.startDate;
+    if (data.endDate !== undefined) updateData.endDate = data.endDate;
+    if (data.currentGross !== undefined) updateData.currentGross = data.currentGross;
+    if (data.currentNet !== undefined) updateData.currentNet = data.currentNet;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    await db.income.update({
+      where: { id: incomeId },
+      data: updateData,
     });
 
     revalidatePath("/income");
@@ -95,12 +107,12 @@ export async function updateIncomeSource(
   }
 }
 
-export async function toggleIncomeSourceStatus(
-  incomeSourceId: number,
+export async function toggleIncomeStatus(
+  incomeId: number,
   isActive: boolean
 ): Promise<{ success: boolean }> {
-  await db.incomeSource.update({
-    where: { id: incomeSourceId },
+  await db.income.update({
+    where: { id: incomeId },
     data: { isActive },
   });
 
@@ -108,12 +120,12 @@ export async function toggleIncomeSourceStatus(
   return { success: true };
 }
 
-export async function deleteIncomeSource(
-  incomeSourceId: number
+export async function deleteIncome(
+  incomeId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const transactionCount = await db.transaction.count({
-      where: { incomeSourceId },
+      where: { incomeId },
     });
 
     if (transactionCount > 0) {
@@ -123,15 +135,15 @@ export async function deleteIncomeSource(
       };
     }
 
-    await db.incomeSourcePattern.deleteMany({
-      where: { incomeSourceId },
+    await db.incomePattern.deleteMany({
+      where: { incomeId },
     });
-    await db.incomeChange.deleteMany({
-      where: { incomeSourceId },
+    await db.payslip.deleteMany({
+      where: { incomeId },
     });
 
-    await db.incomeSource.delete({
-      where: { id: incomeSourceId },
+    await db.income.delete({
+      where: { id: incomeId },
     });
 
     revalidatePath("/income");
@@ -141,8 +153,8 @@ export async function deleteIncomeSource(
   }
 }
 
-export async function enableAllIncomeSources(): Promise<{ success: boolean }> {
-  await db.incomeSource.updateMany({
+export async function enableAllIncomes(): Promise<{ success: boolean }> {
+  await db.income.updateMany({
     where: { isActive: false },
     data: { isActive: true },
   });
@@ -151,8 +163,8 @@ export async function enableAllIncomeSources(): Promise<{ success: boolean }> {
   return { success: true };
 }
 
-export async function disableAllIncomeSources(): Promise<{ success: boolean }> {
-  await db.incomeSource.updateMany({
+export async function disableAllIncomes(): Promise<{ success: boolean }> {
+  await db.income.updateMany({
     where: { isActive: true },
     data: { isActive: false },
   });

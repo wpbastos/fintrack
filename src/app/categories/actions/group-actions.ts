@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
 export async function createCategoryGroup(data: {
-  groupName: string;
-  groupType: string;
+  name: string;
+  type: string;
+  color?: string;
   notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
@@ -15,8 +16,9 @@ export async function createCategoryGroup(data: {
 
     await db.categoryGroup.create({
       data: {
-        groupName: data.groupName,
-        groupType: data.groupType,
+        name: data.name,
+        type: data.type,
+        color: data.color ?? null,
         notes: data.notes ?? null,
         sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
         isActive: true,
@@ -36,8 +38,9 @@ export async function createCategoryGroup(data: {
 export async function updateCategoryGroup(
   groupId: number,
   data: {
-    groupName: string;
-    groupType: string;
+    name: string;
+    type: string;
+    color?: string;
     notes?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
@@ -45,8 +48,9 @@ export async function updateCategoryGroup(
     await db.categoryGroup.update({
       where: { id: groupId },
       data: {
-        groupName: data.groupName,
-        groupType: data.groupType,
+        name: data.name,
+        type: data.type,
+        color: data.color ?? null,
         notes: data.notes ?? null,
       },
     });
@@ -68,7 +72,7 @@ export async function deleteCategoryGroup(
     await db.category.deleteMany({
       where: {
         groupId,
-        parentCategoryId: { not: null },
+        parentId: { not: null },
       },
     });
 
@@ -87,9 +91,9 @@ export async function deleteCategoryGroup(
   }
 }
 
-export async function getGroups(): Promise<{ id: number; groupName: string; groupType: string }[]> {
+export async function getGroups(): Promise<{ id: number; name: string; type: string }[]> {
   return db.categoryGroup.findMany({
     orderBy: { sortOrder: "asc" },
-    select: { id: true, groupName: true, groupType: true },
+    select: { id: true, name: true, type: true },
   });
 }

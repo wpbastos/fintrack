@@ -17,14 +17,21 @@ import { toast } from "sonner";
 
 const GROUP_TYPES = ["Expense", "Income", "Transfer", "Investment"] as const;
 
+const colorPalette = [
+  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e",
+  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
+  "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#78716c",
+];
+
 interface GroupActionsProps {
   groupId: number;
   groupName: string;
   groupType: string;
+  color: string | null;
   notes: string | null;
 }
 
-export function GroupActions({ groupId, groupName, groupType, notes }: GroupActionsProps) {
+export function GroupActions({ groupId, groupName, groupType, color, notes }: GroupActionsProps) {
   const [isPending, setIsPending] = useState(false);
 
   const handleDisableAll = async () => {
@@ -79,6 +86,7 @@ export function GroupActions({ groupId, groupName, groupType, notes }: GroupActi
         groupId={groupId}
         groupName={groupName}
         groupType={groupType}
+        color={color}
         notes={notes}
       />
       <button
@@ -98,11 +106,13 @@ function GroupEditDialog({
   groupId,
   groupName,
   groupType,
+  color,
   notes,
 }: {
   groupId: number;
   groupName: string;
   groupType: string;
+  color: string | null;
   notes: string | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -132,6 +142,7 @@ function GroupEditDialog({
           groupId={groupId}
           groupName={groupName}
           groupType={groupType}
+          color={color}
           notes={notes}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
@@ -145,6 +156,7 @@ function GroupEditForm({
   groupId,
   groupName,
   groupType,
+  color: initialColor,
   notes,
   onSuccess,
   onCancel,
@@ -152,6 +164,7 @@ function GroupEditForm({
   groupId: number;
   groupName: string;
   groupType: string;
+  color: string | null;
   notes: string | null;
   onSuccess: () => void;
   onCancel: () => void;
@@ -159,6 +172,7 @@ function GroupEditForm({
   const [isPending, setIsPending] = useState(false);
   const [name, setName] = useState(groupName);
   const [type, setType] = useState(groupType);
+  const [color, setColor] = useState(initialColor ?? "#6366f1");
   const [notesValue, setNotesValue] = useState(notes ?? "");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,8 +186,9 @@ function GroupEditForm({
     setIsPending(true);
 
     const result = await updateCategoryGroup(groupId, {
-      groupName: name.trim(),
-      groupType: type,
+      name: name.trim(),
+      type: type,
+      color: color || undefined,
       notes: notesValue.trim() || undefined,
     });
 
@@ -224,6 +239,36 @@ function GroupEditForm({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Color</label>
+            <div className="flex flex-wrap gap-1.5">
+              {colorPalette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-6 h-6 rounded-md transition-all ${
+                    color === c ? "ring-2 ring-offset-2 ring-violet-500" : "hover:scale-110"
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <div
+                className="w-8 h-8 rounded-md border"
+                style={{ backgroundColor: color }}
+              />
+              <Input
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="#000000"
+                className="w-28 font-mono text-sm"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <label htmlFor="group-notes" className="text-sm font-medium">

@@ -1,344 +1,60 @@
 {
   "statement": {
     "account": {
-      "accountName": "RBC Chequing",
-      "accountNumber": "7890",
-      "institutionName": "Royal Bank of Canada",
-      "accountType": "Chequing",
+      "accountName": "TD Visa Infinite",
+      "accountNumber": "4520123456789012",
+      "institutionName": "TD Bank",
+      "accountType": "Credit Card",
       "currency": "CAD"
     },
-    "periodStart": "2024-03-01",
-    "periodEnd": "2024-03-31",
-    "openingBalance": 5945.18,
-    "closingBalance": 6138.38,
-    "sourceFile": "2024-03_RBC_Chequing.pdf",
-    "sourceType": "Statement"
+    "periodStart": "2024-01-15",
+    "periodEnd": "2024-02-14",
+    "openingBalance": 1856.78,
+    "closingBalance": 2836.18,
+    "sourceFile": "2024-01_TD_Visa.pdf",
+    "sourceType": "Credit Card"
   },
   "transactions": [
-    {
-      "date": "2024-03-01",
-      "description": "TIM HORTONS #5678 VANCOUVER BC",
-      "amount": -5.85
-    },
-    {
-      "date": "2024-03-01",
-      "description": "TIM HORTONS #5678 VANCOUVER BC",
-      "amount": -4.25
-    },
-    {
-      "date": "2024-03-01",
-      "description": "RENT PAYMENT - E-TRANSFER OUT",
-      "amount": -1595.00
-    },
-    {
-      "date": "2024-03-02",
-      "description": "AMAZON.CA*4D5E6F VANCOUVER BC",
-      "amount": -67.89
-    },
-    {
-      "date": "2024-03-02",
-      "description": "AMAZON.CA*5E6F7G VANCOUVER BC",
-      "amount": -23.45
-    },
-    {
-      "date": "2024-03-02",
-      "description": "AMAZON.CA*6F7G8H VANCOUVER BC",
-      "amount": -156.78
-    },
-    {
-      "date": "2024-03-03",
-      "description": "COSTCO WHOLESALE #123 BURNABY BC",
-      "amount": -287.34
-    },
-    {
-      "date": "2024-03-03",
-      "description": "COSTCO GAS 0123 BURNABY BC",
-      "amount": -68.50
-    },
-    {
-      "date": "2024-03-04",
-      "description": "STARBUCKS #12345 VANCOUVER",
-      "amount": -7.95
-    },
-    {
-      "date": "2024-03-04",
-      "description": "STARBUCKS #12345 VANCOUVER",
-      "amount": -8.45
-    },
-    {
-      "date": "2024-03-04",
-      "description": "STARBUCKS #67890 BURNABY",
-      "amount": -6.75
-    },
-    {
-      "date": "2024-03-05",
-      "description": "BC FERRIES TSAWWASSEN",
-      "amount": -89.50
-    },
-    {
-      "date": "2024-03-05",
-      "description": "SHELL OIL 0012345 VANCOUVER BC",
-      "amount": -75.80
-    },
-    {
-      "date": "2024-03-06",
-      "description": "NETFLIX.COM",
-      "amount": -22.99
-    },
-    {
-      "date": "2024-03-06",
-      "description": "SPOTIFY.COM",
-      "amount": -11.99
-    },
-    {
-      "date": "2024-03-06",
-      "description": "APPLE.COM/BILL",
-      "amount": -2.99
-    },
-    {
-      "date": "2024-03-06",
-      "description": "DISNEY PLUS",
-      "amount": -14.99
-    },
-    {
-      "date": "2024-03-07",
-      "description": "UBER* EATS HELP.UBER.COM",
-      "amount": -38.45
-    },
-    {
-      "date": "2024-03-07",
-      "description": "DOORDASH* ORDER HELP.DOORDASH",
-      "amount": -42.30
-    },
-    {
-      "date": "2024-03-08",
-      "description": "TECHCORP PAYROLL DIRECT DEP",
-      "amount": 2750.00
-    },
-    {
-      "date": "2024-03-08",
-      "description": "TRANSFER TO SAVINGS",
-      "amount": -500.00
-    },
-    {
-      "date": "2024-03-09",
-      "description": "LCBO #1234 VANCOUVER",
-      "amount": -54.60
-    },
-    {
-      "date": "2024-03-09",
-      "description": "SAVE ON FOODS #789 VANCOUVER",
-      "amount": -134.56
-    },
-    {
-      "date": "2024-03-10",
-      "description": "UBER* TRIP HELP.UBER.COM",
-      "amount": -24.85
-    },
-    {
-      "date": "2024-03-10",
-      "description": "UBER* TRIP HELP.UBER.COM",
-      "amount": -18.90
-    },
-    {
-      "date": "2024-03-10",
-      "description": "UBER* TRIP HELP.UBER.COM",
-      "amount": -31.25
-    },
-    {
-      "date": "2024-03-11",
-      "description": "ATM WITHDRAWAL - RBC",
-      "amount": -200.00
-    },
-    {
-      "date": "2024-03-12",
-      "description": "WINNERS #567 VANCOUVER",
-      "amount": -78.99
-    },
-    {
-      "date": "2024-03-12",
-      "description": "HOMESENSE #234 BURNABY",
-      "amount": -145.67
-    },
-    {
-      "date": "2024-03-13",
-      "description": "PETROCAN 0045678 BURNABY BC",
-      "amount": -72.40
-    },
-    {
-      "date": "2024-03-14",
-      "description": "CRA DIRECT DEP GST CREDIT",
-      "amount": 456.00
-    },
-    {
-      "date": "2024-03-14",
-      "description": "MCDONALDS #9876 VANCOUVER BC",
-      "amount": -15.45
-    },
-    {
-      "date": "2024-03-14",
-      "description": "MCDONALDS #9876 VANCOUVER BC",
-      "amount": -12.30
-    },
-    {
-      "date": "2024-03-14",
-      "description": "A&W #5432 VANCOUVER",
-      "amount": -18.75
-    },
-    {
-      "date": "2024-03-15",
-      "description": "BC HYDRO PAYMENT",
-      "amount": -168.90
-    },
-    {
-      "date": "2024-03-15",
-      "description": "TELUS MOBILITY",
-      "amount": -95.00
-    },
-    {
-      "date": "2024-03-15",
-      "description": "SHAW CABLE",
-      "amount": -125.00
-    },
-    {
-      "date": "2024-03-16",
-      "description": "REAL CANADIAN SUPERSTORE BURNABY",
-      "amount": -178.34
-    },
-    {
-      "date": "2024-03-16",
-      "description": "SHOPPERS DRUG MART #123 VANCOUVER",
-      "amount": -45.67
-    },
-    {
-      "date": "2024-03-17",
-      "description": "AMAZON REFUND",
-      "amount": 67.89
-    },
-    {
-      "date": "2024-03-18",
-      "description": "E-TRANSFER FROM JANE DOE",
-      "amount": 150.00
-    },
-    {
-      "date": "2024-03-18",
-      "description": "E-TRANSFER TO MOM",
-      "amount": -200.00
-    },
-    {
-      "date": "2024-03-19",
-      "description": "CANADIAN TIRE #890 BURNABY",
-      "amount": -89.99
-    },
-    {
-      "date": "2024-03-19",
-      "description": "CANADIAN TIRE #890 BURNABY",
-      "amount": -34.56
-    },
-    {
-      "date": "2024-03-20",
-      "description": "TIM HORTONS #5678 VANCOUVER BC",
-      "amount": -6.45
-    },
-    {
-      "date": "2024-03-20",
-      "description": "TIM HORTONS #9999 BURNABY BC",
-      "amount": -5.25
-    },
-    {
-      "date": "2024-03-21",
-      "description": "BEST BUY #123 VANCOUVER",
-      "amount": -249.99
-    },
-    {
-      "date": "2024-03-22",
-      "description": "TECHCORP PAYROLL DIRECT DEP",
-      "amount": 2750.00
-    },
-    {
-      "date": "2024-03-22",
-      "description": "TRANSFER TO TFSA",
-      "amount": -400.00
-    },
-    {
-      "date": "2024-03-23",
-      "description": "IKEA RICHMOND BC",
-      "amount": -356.78
-    },
-    {
-      "date": "2024-03-23",
-      "description": "IKEA RESTAURANT RICHMOND",
-      "amount": -24.50
-    },
-    {
-      "date": "2024-03-24",
-      "description": "LONDON DRUGS #456 VANCOUVER",
-      "amount": -78.90
-    },
-    {
-      "date": "2024-03-25",
-      "description": "VISA PAYMENT - THANK YOU",
-      "amount": -1200.00
-    },
-    {
-      "date": "2024-03-26",
-      "description": "GYM MEMBERSHIP - FITNESS WORLD",
-      "amount": -49.99
-    },
-    {
-      "date": "2024-03-26",
-      "description": "DOLLARAMA #234 VANCOUVER",
-      "amount": -12.00
-    },
-    {
-      "date": "2024-03-27",
-      "description": "STARBUCKS #12345 VANCOUVER",
-      "amount": -9.25
-    },
-    {
-      "date": "2024-03-27",
-      "description": "SUBWAY #7890 VANCOUVER",
-      "amount": -14.56
-    },
-    {
-      "date": "2024-03-28",
-      "description": "PETROCAN 0045678 BURNABY BC",
-      "amount": -81.30
-    },
-    {
-      "date": "2024-03-29",
-      "description": "EARLS KITCHEN + BAR VANCOUVER",
-      "amount": -98.75
-    },
-    {
-      "date": "2024-03-29",
-      "description": "UBER* TRIP HELP.UBER.COM",
-      "amount": -27.40
-    },
-    {
-      "date": "2024-03-30",
-      "description": "SAVE ON FOODS #789 VANCOUVER",
-      "amount": -112.45
-    },
-    {
-      "date": "2024-03-30",
-      "description": "LIQUOR STORE #567 VANCOUVER",
-      "amount": -38.90
-    },
-    {
-      "date": "2024-03-31",
-      "description": "RBC SAVINGS INTEREST",
-      "amount": 1.23
-    },
-    {
-      "date": "2024-03-31",
-      "description": "RBC DIVIDEND PAYMENT",
-      "amount": 125.50
-    },
-    {
-      "date": "2024-03-31",
-      "description": "RBC MONTHLY FEE REBATE",
-      "amount": 16.95
-    }
+    { "date": "2024-01-16", "description": "AMAZON.CA*3C4D5E SEATTLE WA", "amount": 89.99 },
+    { "date": "2024-01-16", "description": "AMAZON.CA*4D5E6F SEATTLE WA", "amount": 45.67 },
+    { "date": "2024-01-17", "description": "ESSO 0034567 VANCOUVER BC", "amount": 65.45 },
+    { "date": "2024-01-18", "description": "INDIGO BOOKS #234 VANCOUVER", "amount": 34.99 },
+    { "date": "2024-01-19", "description": "PAYMENT THANK YOU", "amount": -2500.00 },
+    { "date": "2024-01-20", "description": "SEPHORA #567 VANCOUVER BC", "amount": 78.50 },
+    { "date": "2024-01-20", "description": "BATH & BODY WORKS VANCOUVER", "amount": 45.99 },
+    { "date": "2024-01-21", "description": "EARLS KITCHEN VANCOUVER", "amount": 125.80 },
+    { "date": "2024-01-22", "description": "SHOPPERS DRUG MART #890 BURNABY", "amount": 45.67 },
+    { "date": "2024-01-23", "description": "IKEA COQUITLAM BC", "amount": 234.56 },
+    { "date": "2024-01-23", "description": "IKEA RESTAURANT COQUITLAM BC", "amount": 28.45 },
+    { "date": "2024-01-24", "description": "H&M #123 VANCOUVER", "amount": 67.89 },
+    { "date": "2024-01-24", "description": "ZARA #456 VANCOUVER", "amount": 123.45 },
+    { "date": "2024-01-25", "description": "STARBUCKS #45678 VANCOUVER", "amount": 12.45 },
+    { "date": "2024-01-25", "description": "STARBUCKS #45679 BURNABY", "amount": 8.95 },
+    { "date": "2024-01-26", "description": "CINEPLEX SCOTIABANK VANCOUVER", "amount": 45.00 },
+    { "date": "2024-01-26", "description": "CINEPLEX CONCESSION VANCOUVER", "amount": 32.50 },
+    { "date": "2024-01-27", "description": "UBER* TRIP HELP.UBER.COM", "amount": 28.90 },
+    { "date": "2024-01-28", "description": "LULULEMON #456 VANCOUVER", "amount": 178.00 },
+    { "date": "2024-01-29", "description": "WHOLE FOODS MKT #789 VANCOUVER", "amount": 98.45 },
+    { "date": "2024-01-30", "description": "DISNEY PLUS", "amount": 14.99 },
+    { "date": "2024-01-30", "description": "CRAVE TV", "amount": 19.99 },
+    { "date": "2024-01-31", "description": "AMAZON PRIME MEMBERSHIP", "amount": 99.00 },
+    { "date": "2024-02-01", "description": "OLD NAVY #234 BURNABY", "amount": 56.78 },
+    { "date": "2024-02-01", "description": "GAP #567 VANCOUVER", "amount": 89.99 },
+    { "date": "2024-02-02", "description": "SKIP THE DISHES CALGARY", "amount": 42.35 },
+    { "date": "2024-02-03", "description": "AIRBNB HM2345678 SAN FRAN", "amount": 456.78 },
+    { "date": "2024-02-04", "description": "EXPEDIA TRAVEL SEATTLE", "amount": 234.56 },
+    { "date": "2024-02-05", "description": "RETURN - H&M #123 VANCOUVER", "amount": -67.89 },
+    { "date": "2024-02-06", "description": "APPLE STORE #R123 VANCOUVER", "amount": 299.00 },
+    { "date": "2024-02-07", "description": "STARBUCKS #45678 VANCOUVER", "amount": 8.95 },
+    { "date": "2024-02-07", "description": "TIM HORTONS #1234 BURNABY", "amount": 6.45 },
+    { "date": "2024-02-08", "description": "CACTUS CLUB VANCOUVER", "amount": 89.45 },
+    { "date": "2024-02-09", "description": "SAFEWAY #1234 VANCOUVER", "amount": 67.89 },
+    { "date": "2024-02-10", "description": "SPORT CHEK #567 BURNABY", "amount": 189.99 },
+    { "date": "2024-02-11", "description": "UBER EATS HELP.UBER.COM", "amount": 38.50 },
+    { "date": "2024-02-11", "description": "DOORDASH* ORDER HELP.DOORDASH", "amount": 45.67 },
+    { "date": "2024-02-12", "description": "PETRO CANADA 0056789 VANCOUVER", "amount": 72.30 },
+    { "date": "2024-02-13", "description": "VET CLINIC VANCOUVER", "amount": 189.00 },
+    { "date": "2024-02-14", "description": "FLOWERS.CA MISSISSAUGA ON", "amount": 89.99 },
+    { "date": "2024-02-14", "description": "CHOCOLATS FAVORIS VANCOUVER", "amount": 45.00 }
   ]
 }

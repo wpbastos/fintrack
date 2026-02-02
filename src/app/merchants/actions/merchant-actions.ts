@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
 export async function createMerchant(data: {
-  merchantName: string;
-  merchantType?: string;
-  defaultCategoryId?: number;
+  name: string;
+  type?: string;
+  categoryId?: number;
   website?: string;
   notes?: string;
   hasAlternative?: boolean;
@@ -16,9 +16,9 @@ export async function createMerchant(data: {
   try {
     const merchant = await db.merchant.create({
       data: {
-        merchantName: data.merchantName,
-        merchantType: data.merchantType || null,
-        defaultCategoryId: data.defaultCategoryId || null,
+        name: data.name,
+        type: data.type || null,
+        categoryId: data.categoryId || null,
         website: data.website || null,
         notes: data.notes || null,
         hasAlternative: data.hasAlternative ?? false,
@@ -41,9 +41,9 @@ export async function createMerchant(data: {
 export async function updateMerchant(
   merchantId: number,
   data: {
-    merchantName?: string;
-    merchantType?: string | null;
-    defaultCategoryId?: number | null;
+    name?: string;
+    type?: string | null;
+    categoryId?: number | null;
     website?: string | null;
     notes?: string | null;
     hasAlternative?: boolean;
@@ -130,10 +130,10 @@ export async function disableAllMerchants(): Promise<{ success: boolean }> {
   return { success: true };
 }
 
-export async function getCategories(): Promise<{ id: number; categoryName: string; groupName: string }[]> {
+export async function getCategories(): Promise<{ id: number; name: string; color: string | null; groupName: string; groupColor: string | null }[]> {
   const categories = await db.category.findMany({
     where: { isActive: true },
-    orderBy: { categoryName: "asc" },
+    orderBy: { name: "asc" },
     include: {
       group: true,
     },
@@ -141,7 +141,9 @@ export async function getCategories(): Promise<{ id: number; categoryName: strin
 
   return categories.map((c) => ({
     id: c.id,
-    categoryName: c.categoryName,
-    groupName: c.group?.groupName || "Uncategorized",
+    name: c.name,
+    color: c.color,
+    groupName: c.group?.name || "Uncategorized",
+    groupColor: c.group?.color || null,
   }));
 }

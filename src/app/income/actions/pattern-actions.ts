@@ -3,16 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
-export async function addIncomeSourcePattern(
-  incomeSourceId: number,
+export async function addIncomePattern(
+  incomeId: number,
   pattern: string,
   priority?: number,
   notes?: string
 ): Promise<{ success: boolean; error?: string; pattern?: { id: number } }> {
   try {
-    const created = await db.incomeSourcePattern.create({
+    const created = await db.incomePattern.create({
       data: {
-        incomeSourceId,
+        incomeId,
         pattern: pattern.toUpperCase().trim(),
         priority: priority ?? 10,
         notes: notes || null,
@@ -29,7 +29,7 @@ export async function addIncomeSourcePattern(
   }
 }
 
-export async function updateIncomeSourcePattern(
+export async function updateIncomePattern(
   patternId: number,
   data: {
     pattern?: string;
@@ -38,7 +38,7 @@ export async function updateIncomeSourcePattern(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await db.incomeSourcePattern.update({
+    await db.incomePattern.update({
       where: { id: patternId },
       data: {
         pattern: data.pattern?.toUpperCase().trim(),
@@ -57,11 +57,11 @@ export async function updateIncomeSourcePattern(
   }
 }
 
-export async function deleteIncomeSourcePattern(
+export async function deleteIncomePattern(
   patternId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await db.incomeSourcePattern.delete({
+    await db.incomePattern.delete({
       where: { id: patternId },
     });
 
@@ -72,11 +72,11 @@ export async function deleteIncomeSourcePattern(
   }
 }
 
-export async function getIncomeSourcePatterns(
-  incomeSourceId: number
+export async function getIncomePatterns(
+  incomeId: number
 ): Promise<{ id: number; pattern: string; priority: number; notes: string | null }[]> {
-  const patterns = await db.incomeSourcePattern.findMany({
-    where: { incomeSourceId },
+  const patterns = await db.incomePattern.findMany({
+    where: { incomeId },
     orderBy: { priority: "desc" },
   });
 

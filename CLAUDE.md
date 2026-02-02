@@ -26,6 +26,7 @@ docker-compose logs -f       # View logs
 - **Framework**: Next.js 16 with App Router, React 19, TypeScript
 - **Database**: SQLite via Prisma ORM with better-sqlite3 adapter
 - **UI**: Tailwind CSS 4, shadcn/ui (new-york style), Radix UI primitives, Lucide icons
+- **Charts**: Recharts (BarChart, ResponsiveContainer, Legend, Tooltip, Cell)
 - **Notifications**: Sonner for toasts
 - **Scheduling**: node-cron for background jobs
 
@@ -91,6 +92,106 @@ When multiple tables need consistent column widths (e.g., grouped data in separa
 ```
 
 This ensures columns align consistently across all table instances. Add `text-center` to TableHead/TableCell for centered columns.
+
+### 3D Action Buttons
+
+Small action buttons (JSON, Delete, Maximize) use a 3D raised effect with glow on hover:
+
+```tsx
+<button
+  className="h-7 w-7 p-0 rounded-md text-indigo-600 bg-indigo-50
+    dark:text-indigo-400 dark:bg-indigo-950/50
+    shadow-[0_2px_0_0_rgba(99,102,241,0.4)]
+    hover:bg-indigo-100 hover:shadow-[0_0_8px_2px_rgba(99,102,241,0.4)] hover:scale-110
+    active:shadow-none active:scale-100 active:translate-y-[1px]
+    transition-all duration-150 dark:hover:bg-indigo-900/70
+    flex items-center justify-center"
+>
+  <Icon className="h-4 w-4" />
+</button>
+```
+
+**Color variants:**
+- Indigo: primary actions (view, edit)
+- Rose: destructive actions (delete)
+- Slate: neutral actions (maximize/minimize)
+
+### Recharts Patterns
+
+For bar charts with selection and custom legends:
+
+```tsx
+// Custom legend with explicit order and colored labels
+<Legend
+  verticalAlign="top"
+  height={36}
+  content={() => (
+    <div className="flex justify-center gap-6 text-sm mb-2">
+      <div className="flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#6366f1" }} />
+        <span style={{ color: "#6366f1" }}>Label</span>
+      </div>
+      {/* ... more items */}
+    </div>
+  )}
+/>
+
+// Tooltip with explicit sort order
+<Tooltip
+  itemSorter={(item) => {
+    const order: Record<string, number> = { first: 0, second: 1, third: 2 };
+    return order[item.dataKey as string] ?? 0;
+  }}
+/>
+
+// Bars with selection highlighting via Cell
+<Bar dataKey="value" onClick={handleBarClick} cursor="pointer">
+  {chartData.map((entry) => (
+    <Cell
+      key={entry.id}
+      fill="#6366f1"
+      opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3}
+    />
+  ))}
+</Bar>
+```
+
+### Chart-Table Interaction
+
+When charts and tables show the same data, sync selection between them:
+
+1. Add `selectedId` state in parent component
+2. Pass to both chart and table
+3. On chart bar click: toggle selection
+4. On table row: highlight with opacity and background color
+5. Non-selected items dim to 30-40% opacity
+
+### Maximize/Minimize Charts
+
+Add toggle button to expand charts to full width:
+
+```tsx
+const [maximized, setMaximized] = useState<"chart1" | "chart2" | null>(null);
+const chartHeight = maximized ? 400 : 256;
+
+// Grid adjusts based on maximized state
+<div className={`grid gap-6 ${maximized ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+  {(maximized === null || maximized === "chart1") && (
+    <div>/* Chart with maximize button */</div>
+  )}
+</div>
+```
+
+### Color Conventions
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Indigo | #6366f1 | Primary actions, totals |
+| Green | #10b981 | Positive, matched, net change |
+| Amber | #f59e0b | Warnings, unknown items |
+| Rose | #f43f5e | Delete, danger, negative |
+| Blue | #3b82f6 | Closing balance, info |
+| Slate | #94a3b8 | Neutral, opening balance |
 
 ## Budget Cycle System
 

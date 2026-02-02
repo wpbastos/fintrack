@@ -33,8 +33,8 @@ const ACCOUNT_TYPES = [
 
 interface Institution {
   id: number;
-  institutionName: string;
-  institutionType: string;
+  name: string;
+  type: string;
   isActive: boolean;
 }
 
@@ -47,19 +47,19 @@ interface Person {
 
 interface Account {
   id: number;
-  accountName: string;
-  accountNumber: string | null;
+  name: string;
+  number: string | null;
   institutionId: number | null;
   institution: Institution | null;
-  accountType: string;
-  accountNickname: string | null;
+  type: string;
+  nickname: string | null;
   currency: string;
   creditLimit: number | null;
   interestRate: number | null;
   billingCycleDay: number | null;
   isJoint: boolean;
-  primaryHolderId: number | null;
-  primaryHolder: Person | null;
+  ownerId: number | null;
+  owner: Person | null;
   notes: string | null;
 }
 
@@ -127,13 +127,13 @@ function AccountForm({
   const [isPending, setIsPending] = useState(false);
 
   // Form state - initialized from account prop
-  const [accountName, setAccountName] = useState(account?.accountName || "");
-  const [accountNumber, setAccountNumber] = useState(account?.accountNumber || "");
+  const [accountName, setAccountName] = useState(account?.name || "");
+  const [accountNumber, setAccountNumber] = useState(account?.number || "");
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(
     account?.institution || null
   );
-  const [accountType, setAccountType] = useState(account?.accountType || "Chequing");
-  const [accountNickname, setAccountNickname] = useState(account?.accountNickname || "");
+  const [accountType, setAccountType] = useState(account?.type || "Chequing");
+  const [accountNickname, setAccountNickname] = useState(account?.nickname || "");
   const [currency, setCurrency] = useState(account?.currency || "CAD");
   const [creditLimit, setCreditLimit] = useState(account?.creditLimit?.toString() || "");
   const [interestRate, setInterestRate] = useState(account?.interestRate?.toString() || "");
@@ -141,8 +141,8 @@ function AccountForm({
     account?.billingCycleDay?.toString() || ""
   );
   const [isJoint, setIsJoint] = useState(account?.isJoint || false);
-  const [primaryHolderId, setPrimaryHolderId] = useState<number | null>(
-    account?.primaryHolderId || null
+  const [ownerId, setOwnerId] = useState<number | null>(
+    account?.ownerId || null
   );
   const [notes, setNotes] = useState(account?.notes || "");
 
@@ -157,33 +157,33 @@ function AccountForm({
     setIsPending(true);
 
     const data = {
-      accountName: accountName.trim(),
-      accountNumber: accountNumber.trim() || undefined,
+      name: accountName.trim(),
+      number: accountNumber.trim() || undefined,
       institutionId: selectedInstitution?.id,
-      accountType,
-      accountNickname: accountNickname.trim() || undefined,
+      type: accountType,
+      nickname: accountNickname.trim() || undefined,
       currency,
       creditLimit: creditLimit ? parseFloat(creditLimit) : undefined,
       interestRate: interestRate ? parseFloat(interestRate) : undefined,
       billingCycleDay: billingCycleDay ? parseInt(billingCycleDay) : undefined,
       isJoint,
-      primaryHolderId: primaryHolderId || undefined,
+      ownerId: ownerId || undefined,
       notes: notes.trim() || undefined,
     };
 
     const result = account
       ? await updateAccount(account.id, {
-          accountName: data.accountName,
-          accountNumber: data.accountNumber ?? null,
+          name: data.name,
+          number: data.number ?? null,
           institutionId: data.institutionId ?? null,
-          accountType: data.accountType,
-          accountNickname: data.accountNickname ?? null,
+          type: data.type,
+          nickname: data.nickname ?? null,
           currency: data.currency,
           creditLimit: data.creditLimit ?? null,
           interestRate: data.interestRate ?? null,
           billingCycleDay: data.billingCycleDay ?? null,
           isJoint: data.isJoint,
-          primaryHolderId: data.primaryHolderId ?? null,
+          ownerId: data.ownerId ?? null,
           notes: data.notes ?? null,
         })
       : await createAccount(data);
@@ -349,13 +349,13 @@ function AccountForm({
               />
             </div>
 
-            {/* Primary Holder */}
+            {/* Owner */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Primary Person</label>
+              <label className="text-sm font-medium">Owner</label>
               <select
-                value={primaryHolderId || ""}
+                value={ownerId || ""}
                 onChange={(e) =>
-                  setPrimaryHolderId(e.target.value ? parseInt(e.target.value) : null)
+                  setOwnerId(e.target.value ? parseInt(e.target.value) : null)
                 }
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-violet-300 dark:bg-slate-800 dark:border-slate-700"
               >

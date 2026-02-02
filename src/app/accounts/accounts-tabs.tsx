@@ -10,8 +10,8 @@ import { StatusFilter } from "./status-filter";
 
 interface Institution {
   id: number;
-  institutionName: string;
-  institutionType: string;
+  name: string;
+  type: string;
   website: string | null;
   isActive: boolean;
   notes: string | null;
@@ -34,24 +34,24 @@ interface Person {
 
 interface Account {
   id: number;
-  accountName: string;
-  accountNumber: string | null;
+  name: string;
+  number: string | null;
   institutionId: number | null;
   institution: {
     id: number;
-    institutionName: string;
-    institutionType: string;
+    name: string;
+    type: string;
     isActive: boolean;
   } | null;
-  accountType: string;
-  accountNickname: string | null;
+  type: string;
+  nickname: string | null;
   currency: string;
   creditLimit: number | null;
   interestRate: number | null;
   billingCycleDay: number | null;
   isJoint: boolean;
-  primaryHolderId: number | null;
-  primaryHolder: {
+  ownerId: number | null;
+  owner: {
     id: number;
     name: string;
     email: string | null;
@@ -88,8 +88,6 @@ export function AccountsTabs({ institutions, persons, accounts }: AccountsTabsPr
   }));
 
   // Calculate stats
-  const activeInstitutions = institutions.filter((i) => i.isActive).length;
-  const activePersons = persons.filter((c) => c.isActive).length;
   const activeAccounts = accounts.filter((a) => a.isActive).length;
   const totalCreditLimit = accounts
     .filter((a) => a.isActive && a.creditLimit)

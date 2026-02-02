@@ -26,9 +26,9 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [newPatterns, setNewPatterns] = useState<NewPattern[]>([]);
 
-  const [merchantName, setMerchantName] = useState(merchant?.merchantName || "");
-  const [defaultCategoryId, setDefaultCategoryId] = useState<number | "">(
-    merchant?.defaultCategoryId || ""
+  const [merchantName, setMerchantName] = useState(merchant?.name || "");
+  const [categoryId, setCategoryId] = useState<number | "">(
+    merchant?.categoryId || ""
   );
   const [website, setWebsite] = useState(merchant?.website || "");
   const [notes, setNotes] = useState(merchant?.notes || "");
@@ -56,8 +56,8 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
 
     const hasAlt = alternativeName.trim().length > 0;
     const data = {
-      merchantName: merchantName.trim(),
-      defaultCategoryId: defaultCategoryId ? Number(defaultCategoryId) : undefined,
+      name: merchantName.trim(),
+      categoryId: categoryId ? Number(categoryId) : undefined,
       website: website.trim() || undefined,
       notes: notes.trim() || undefined,
       hasAlternative: hasAlt,
@@ -67,8 +67,8 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
 
     if (merchant) {
       const result = await updateMerchant(merchant.id, {
-        merchantName: data.merchantName,
-        defaultCategoryId: data.defaultCategoryId ?? null,
+        name: data.name,
+        categoryId: data.categoryId ?? null,
         website: data.website ?? null,
         notes: data.notes ?? null,
         hasAlternative: data.hasAlternative,
@@ -128,8 +128,8 @@ export function MerchantForm({ merchant, onSuccess, onCancel }: MerchantFormProp
 
           <CategorySelect
             categories={categories}
-            value={defaultCategoryId}
-            onChange={setDefaultCategoryId}
+            value={categoryId}
+            onChange={setCategoryId}
           />
 
           <div className="space-y-2">

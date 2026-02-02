@@ -1,0 +1,29 @@
+{
+  "statement": {
+    "account": {
+      "accountName": "RBC High Interest Savings",
+      "accountNumber": "6001987654",
+      "institutionName": "RBC Royal Bank",
+      "accountType": "Savings",
+      "currency": "CAD"
+    },
+    "periodStart": "2024-01-01",
+    "periodEnd": "2024-02-29",
+    "openingBalance": 15000.00,
+    "closingBalance": 19145.23,
+    "sourceFile": "2024-Q1_RBC_Savings.pdf",
+    "sourceType": "Statement"
+  },
+  "transactions": [
+    { "date": "2024-01-05", "description": "TRANSFER FROM TD CHEQUING", "amount": 1000.00 },
+    { "date": "2024-01-10", "description": "E-TRANSFER FROM DAD", "amount": 500.00 },
+    { "date": "2024-01-20", "description": "TRANSFER FROM TD CHEQUING", "amount": 500.00 },
+    { "date": "2024-01-25", "description": "WITHDRAWAL TO CHEQUING", "amount": -200.00 },
+    { "date": "2024-01-31", "description": "RBC INTEREST PAYMENT", "amount": 45.23 },
+    { "date": "2024-02-05", "description": "TRANSFER FROM TD CHEQUING", "amount": 1000.00 },
+    { "date": "2024-02-10", "description": "TRANSFER FROM TD CHEQUING", "amount": 500.00 },
+    { "date": "2024-02-14", "description": "E-TRANSFER FROM MOM", "amount": 300.00 },
+    { "date": "2024-02-20", "description": "TRANSFER FROM TD CHEQUING", "amount": 500.00 },
+    { "date": "2024-02-29", "description": "RBC INTEREST PAYMENT", "amount": 0.00 }
+  ]
+}

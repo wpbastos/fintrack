@@ -8,24 +8,28 @@ import { StatusFilter } from "./status-filter";
 
 interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
   necessityLevel: string;
   monthlyBudget: number | null;
   isActive: boolean;
   notes: string | null;
-  childCategories?: Category[];
+  children?: Category[];
 }
 
 interface CategoryGroup {
   id: number;
-  groupName: string;
-  groupType: string;
+  name: string;
+  type: string;
+  color: string | null;
   notes: string | null;
   categories: Category[];
 }
 
 interface CategoriesTabsProps {
   groups: CategoryGroup[];
+  categoryStats: Record<number, { monthCount: number; totalCount: number }>;
+  budgetStats: Record<number, { spentThisMonth: number }>;
 }
 
 const tabs = [
@@ -37,22 +41,22 @@ type TabId = (typeof tabs)[number]["id"];
 // Count all categories including children
 function countCategories(categories: Category[]): number {
   return categories.reduce((sum, cat) => {
-    const childCount = cat.childCategories?.length ?? 0;
+    const childCount = cat.children?.length ?? 0;
     return sum + 1 + childCount;
   }, 0);
 }
 
 function countActiveCategories(categories: Category[]): number {
   return categories.reduce((sum, cat) => {
-    const activeChildren = cat.childCategories?.filter((c) => c.isActive).length ?? 0;
+    const activeChildren = cat.children?.filter((c) => c.isActive).length ?? 0;
     return sum + (cat.isActive ? 1 : 0) + activeChildren;
   }, 0);
 }
 
 // Calculate budget (if has children, sum children's budgets; otherwise use own budget)
 function getEffectiveBudget(category: Category): number | null {
-  if (category.childCategories && category.childCategories.length > 0) {
-    const childBudgets = category.childCategories
+  if (category.children && category.children.length > 0) {
+    const childBudgets = category.children
       .filter((c) => c.isActive)
       .map((c) => c.monthlyBudget ?? 0);
     if (childBudgets.length === 0) return null;
@@ -67,7 +71,7 @@ function sumBudgets(categories: Category[]): number {
     .reduce((sum, cat) => sum + (getEffectiveBudget(cat) ?? 0), 0);
 }
 
-export function CategoriesTabs({ groups }: CategoriesTabsProps) {
+export function CategoriesTabs({ groups, categoryStats, budgetStats }: CategoriesTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("categories");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
 
@@ -75,7 +79,7 @@ export function CategoriesTabs({ groups }: CategoriesTabsProps) {
   const totalCategories = groups.reduce((sum, g) => sum + countCategories(g.categories), 0);
   const activeCategories = groups.reduce((sum, g) => sum + countActiveCategories(g.categories), 0);
   const totalBudget = groups
-    .filter((g) => g.groupType === "Expense")
+    .filter((g) => g.type === "Expense")
     .reduce((sum, g) => sum + sumBudgets(g.categories), 0);
 
   // Filter categories based on status (including children)
@@ -84,13 +88,13 @@ export function CategoriesTabs({ groups }: CategoriesTabsProps) {
     categories: group.categories
       .map((cat) => ({
         ...cat,
-        childCategories: cat.childCategories?.filter((child) =>
+        children: cat.children?.filter((child) =>
           statusFilter === "active" ? child.isActive : !child.isActive
         ),
       }))
       .filter((cat) => {
         const matchesFilter = statusFilter === "active" ? cat.isActive : !cat.isActive;
-        const hasMatchingChildren = (cat.childCategories?.length ?? 0) > 0;
+        const hasMatchingChildren = (cat.children?.length ?? 0) > 0;
         return matchesFilter || hasMatchingChildren;
       }),
   }));
@@ -179,7 +183,12 @@ export function CategoriesTabs({ groups }: CategoriesTabsProps) {
       {/* Tab Content */}
       <div>
         {activeTab === "categories" && (
-          <CategoriesPanel groups={filteredGroups} allGroups={groups} />
+          <CategoriesPanel
+            groups={filteredGroups}
+            allGroups={groups}
+            categoryStats={categoryStats}
+            budgetStats={budgetStats}
+          />
         )}
       </div>
     </>

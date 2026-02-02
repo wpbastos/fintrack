@@ -5,7 +5,7 @@ async function getStats() {
   const [transactionCount, stagingCount, importCount] = await Promise.all([
     db.transaction.count(),
     db.stagingTransaction.count(),
-    db.importLog.count(),
+    db.import.count(),
   ]);
 
   const totalAmount = await db.transaction.aggregate({

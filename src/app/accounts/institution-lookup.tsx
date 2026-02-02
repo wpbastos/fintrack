@@ -7,8 +7,8 @@ import { Building, Check, X } from "lucide-react";
 
 interface Institution {
   id: number;
-  institutionName: string;
-  institutionType: string;
+  name: string;
+  type: string;
   isActive: boolean;
 }
 
@@ -21,7 +21,7 @@ export function InstitutionLookup({
   initialInstitution,
   onSelect,
 }: InstitutionLookupProps) {
-  const [search, setSearch] = useState(initialInstitution?.institutionName || "");
+  const [search, setSearch] = useState(initialInstitution?.name || "");
   const [options, setOptions] = useState<Institution[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +45,7 @@ export function InstitutionLookup({
 
   const handleSelect = (institution: Institution) => {
     setSelected(institution);
-    setSearch(institution.institutionName);
+    setSearch(institution.name);
     setIsOpen(false);
     onSelect(institution);
   };
@@ -123,9 +123,9 @@ export function InstitutionLookup({
                     onClick={() => handleSelect(institution)}
                   >
                     <div>
-                      <span className="font-medium">{institution.institutionName}</span>
+                      <span className="font-medium">{institution.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {institution.institutionType}
+                        {institution.type}
                       </span>
                     </div>
                     {institution.isActive && (

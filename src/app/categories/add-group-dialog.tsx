@@ -17,6 +17,12 @@ import { Plus } from "lucide-react";
 
 const GROUP_TYPES = ["Expense", "Income", "Transfer", "Investment"] as const;
 
+const colorPalette = [
+  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e",
+  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
+  "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#78716c",
+];
+
 export function AddGroupDialog() {
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -57,6 +63,7 @@ function AddGroupForm({
   const [isPending, setIsPending] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupType, setGroupType] = useState<string>("Expense");
+  const [color, setColor] = useState("#6366f1");
   const [notes, setNotes] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,8 +77,9 @@ function AddGroupForm({
     setIsPending(true);
 
     const result = await createCategoryGroup({
-      groupName: groupName.trim(),
-      groupType,
+      name: groupName.trim(),
+      type: groupType,
+      color: color || undefined,
       notes: notes.trim() || undefined,
     });
 
@@ -122,6 +130,37 @@ function AddGroupForm({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Color</label>
+            <div className="flex flex-wrap gap-1.5">
+              {colorPalette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-6 h-6 rounded-md transition-all ${
+                    color === c ? "ring-2 ring-offset-2 ring-violet-500" : "hover:scale-110"
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <div
+                className="w-8 h-8 rounded-md border"
+                style={{ backgroundColor: color }}
+              />
+              <Input
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="#000000"
+                className="w-28 font-mono text-sm"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

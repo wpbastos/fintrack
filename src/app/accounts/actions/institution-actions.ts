@@ -5,22 +5,22 @@ import { db } from "@/lib/db";
 
 export async function searchInstitutions(
   query: string
-): Promise<{ id: number; institutionName: string; institutionType: string; isActive: boolean }[]> {
+): Promise<{ id: number; name: string; type: string; isActive: boolean }[]> {
   if (query.length < 1) return [];
 
   const institutions = await db.institution.findMany({
     where: {
       OR: [
-        { institutionName: { contains: query } },
+        { name: { contains: query } },
         { notes: { contains: query } },
       ],
     },
-    orderBy: { institutionName: "asc" },
+    orderBy: { name: "asc" },
     take: 10,
     select: {
       id: true,
-      institutionName: true,
-      institutionType: true,
+      name: true,
+      type: true,
       isActive: true,
     },
   });
@@ -29,16 +29,16 @@ export async function searchInstitutions(
 }
 
 export async function createInstitution(data: {
-  institutionName: string;
-  institutionType: string;
+  name: string;
+  type: string;
   website?: string;
   notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     await db.institution.create({
       data: {
-        institutionName: data.institutionName,
-        institutionType: data.institutionType,
+        name: data.name,
+        type: data.type,
         website: data.website || null,
         notes: data.notes || null,
         isActive: true,
@@ -58,8 +58,8 @@ export async function createInstitution(data: {
 export async function updateInstitution(
   institutionId: number,
   data: {
-    institutionName?: string;
-    institutionType?: string;
+    name?: string;
+    type?: string;
     website?: string | null;
     notes?: string | null;
   }
@@ -127,10 +127,10 @@ export async function deleteInstitution(
 }
 
 export async function enableAllInstitutionsByType(
-  institutionType: string
+  type: string
 ): Promise<{ success: boolean }> {
   await db.institution.updateMany({
-    where: { institutionType },
+    where: { type },
     data: { isActive: true },
   });
 
@@ -139,16 +139,16 @@ export async function enableAllInstitutionsByType(
 }
 
 export async function disableAllInstitutionsByType(
-  institutionType: string
+  type: string
 ): Promise<{ success: boolean }> {
   const institutions = await db.institution.findMany({
-    where: { institutionType },
+    where: { type },
     select: { id: true },
   });
   const institutionIds = institutions.map((i) => i.id);
 
   await db.institution.updateMany({
-    where: { institutionType },
+    where: { type },
     data: { isActive: false },
   });
 

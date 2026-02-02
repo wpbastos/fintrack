@@ -1,13 +1,16 @@
 /**
- * Income Source Resolution Utility
- * Resolves income source IDs from transaction descriptions using pattern matching
+ * Income Resolution Utility
+ * Resolves income IDs from transaction descriptions using pattern matching
  * Mirrors merchant-resolver.ts for income transactions
  */
 
 import { db } from './db';
+import { createLogger } from './logger';
+
+const log = createLogger("Income");
 
 /**
- * Resolve income source ID from a transaction description
+ * Resolve income ID from a transaction description
  * Uses pattern matching with priority and length-based ordering
  *
  * Pattern matching rules:
@@ -17,18 +20,18 @@ import { db } from './db';
  * - Longer patterns win when priority is equal (more specific match)
  *
  * @param description - Raw transaction description from bank statement
- * @returns IncomeSourceID if matched, null otherwise
+ * @returns IncomeID if matched, null otherwise
  */
-export async function resolveIncomeSourceId(description: string): Promise<number | null> {
+export async function resolveIncomeId(description: string): Promise<number | null> {
   if (!description) return null;
 
-  // Get all income source patterns with their income sources
-  const patterns = await db.incomeSourcePattern.findMany({
+  // Get all income patterns with their income sources
+  const patterns = await db.incomePattern.findMany({
     include: {
-      incomeSource: true,
+      income: true,
     },
     where: {
-      incomeSource: {
+      income: {
         isActive: true,
       },
     },
@@ -48,7 +51,7 @@ export async function resolveIncomeSourceId(description: string): Promise<number
   for (const patternEntry of sortedPatterns) {
     const normalizedPattern = patternEntry.pattern.toUpperCase();
     if (normalizedDescription.includes(normalizedPattern)) {
-      return patternEntry.incomeSourceId;
+      return patternEntry.incomeId;
     }
   }
 
@@ -56,26 +59,26 @@ export async function resolveIncomeSourceId(description: string): Promise<number
 }
 
 /**
- * Resolve income source with full details
+ * Resolve income with full details
  *
  * @param description - Raw transaction description
- * @returns Income source object with pattern info, or null
+ * @returns Income object with pattern info, or null
  */
-export async function resolveIncomeSource(description: string): Promise<{
-  incomeSourceId: number;
-  sourceName: string;
+export async function resolveIncome(description: string): Promise<{
+  incomeId: number;
+  name: string;
   pattern: string;
   priority: number;
-  defaultCategoryId: number | null;
+  categoryId: number | null;
 } | null> {
   if (!description) return null;
 
-  const patterns = await db.incomeSourcePattern.findMany({
+  const patterns = await db.incomePattern.findMany({
     include: {
-      incomeSource: true,
+      income: true,
     },
     where: {
-      incomeSource: {
+      income: {
         isActive: true,
       },
     },
@@ -93,21 +96,23 @@ export async function resolveIncomeSource(description: string): Promise<{
   for (const patternEntry of sortedPatterns) {
     const normalizedPattern = patternEntry.pattern.toUpperCase();
     if (normalizedDescription.includes(normalizedPattern)) {
+      log.debug("MATCH", `"${description.substring(0, 30)}..." -> ${patternEntry.income.name} (pattern: ${patternEntry.pattern})`);
       return {
-        incomeSourceId: patternEntry.incomeSourceId,
-        sourceName: patternEntry.incomeSource.sourceName,
+        incomeId: patternEntry.incomeId,
+        name: patternEntry.income.name,
         pattern: patternEntry.pattern,
         priority: patternEntry.priority,
-        defaultCategoryId: patternEntry.incomeSource.defaultCategoryId,
+        categoryId: patternEntry.income.categoryId,
       };
     }
   }
 
+  log.debug("NO_MATCH", `"${description.substring(0, 40)}..." - no pattern matched`);
   return null;
 }
 
 /**
- * Extract core income source identifier from description
+ * Extract core income identifier from description
  * Useful for suggesting patterns for new income sources
  *
  * Examples:
@@ -120,7 +125,7 @@ export async function resolveIncomeSource(description: string): Promise<{
  * @param description - Raw transaction description
  * @returns Suggested pattern string
  */
-export function extractIncomeSourcePattern(description: string): string {
+export function extractIncomePattern(description: string): string {
   if (!description) return '';
 
   const normalized = description.trim().toUpperCase();
@@ -204,63 +209,72 @@ export function extractIncomeSourcePattern(description: string): string {
 }
 
 /**
- * Create or get income source with automatic pattern extraction
+ * Create or get income with automatic pattern extraction
  *
- * @param sourceName - Display name for the income source
+ * @param incomeName - Display name for the income
  * @param sampleDescription - Sample transaction description for pattern extraction
- * @param options - Optional income source properties
- * @returns Created or existing income source with pattern
+ * @param options - Optional income properties
+ * @returns Created or existing income with pattern
  */
-export async function createIncomeSourceWithPattern(
-  sourceName: string,
+export async function createIncomeWithPattern(
+  incomeName: string,
   sampleDescription: string,
   options?: {
-    defaultCategoryId?: number;
+    categoryId?: number;
     personId?: number;
     depositAccountId?: number;
     payFrequency?: string;
     priority?: number;
   }
-): Promise<{ incomeSourceId: number; pattern: string }> {
-  // Check if income source exists
-  let incomeSource = await db.incomeSource.findUnique({
-    where: { sourceName },
+): Promise<{ incomeId: number; pattern: string }> {
+  log.debug("CREATE", `Creating income: ${incomeName}`);
+
+  // Check if income exists
+  let income = await db.income.findUnique({
+    where: { name: incomeName },
   });
 
-  // Create income source if doesn't exist
-  if (!incomeSource) {
-    incomeSource = await db.incomeSource.create({
+  // Create income if doesn't exist
+  if (!income) {
+    income = await db.income.create({
       data: {
-        sourceName,
-        defaultCategoryId: options?.defaultCategoryId,
+        name: incomeName,
+        categoryId: options?.categoryId,
         personId: options?.personId,
         depositAccountId: options?.depositAccountId,
         payFrequency: options?.payFrequency,
         isActive: true,
       },
     });
+    log.info("CREATE", `Created new income: ${incomeName} (ID: ${income.id})`);
+  } else {
+    log.debug("CREATE", `Income already exists: ${incomeName} (ID: ${income.id})`);
   }
 
   // Extract pattern from sample description
-  const pattern = extractIncomeSourcePattern(sampleDescription);
+  const pattern = extractIncomePattern(sampleDescription);
+  log.debug("PATTERN", `Extracted pattern: "${pattern}" from "${sampleDescription.substring(0, 40)}..."`);
 
   // Create pattern if doesn't exist
-  const existingPattern = await db.incomeSourcePattern.findUnique({
+  const existingPattern = await db.incomePattern.findUnique({
     where: { pattern },
   });
 
   if (!existingPattern) {
-    await db.incomeSourcePattern.create({
+    await db.incomePattern.create({
       data: {
-        incomeSourceId: incomeSource.id,
+        incomeId: income.id,
         pattern,
         priority: options?.priority || 10,
       },
     });
+    log.info("PATTERN", `Created new pattern: "${pattern}" for ${incomeName}`);
+  } else {
+    log.debug("PATTERN", `Pattern already exists: "${pattern}"`);
   }
 
   return {
-    incomeSourceId: incomeSource.id,
+    incomeId: income.id,
     pattern,
   };
 }

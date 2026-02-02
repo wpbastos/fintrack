@@ -1,21 +1,22 @@
 /**
  * Staging Transaction Resolver
- * Combines date, merchant, and income source resolution for batch processing
+ * Combines date, merchant, and income resolution for batch processing
  */
 
 import { db } from './db';
 import { resolveDate } from './date-resolver';
 import { resolveMerchant } from './merchant-resolver';
-import { resolveIncomeSource } from './income-resolver';
+import { resolveIncome } from './income-resolver';
+import { resolverLogger as log } from './logger';
 
 /**
  * Resolution result for a single transaction
  */
 export interface TransactionResolution {
   resolvedDate: Date | null;
-  resolvedMerchantId: number | null;
-  resolvedIncomeSourceId: number | null;
-  resolvedCategoryId: number | null;
+  merchantId: number | null;
+  incomeId: number | null;
+  categoryId: number | null;
   matchConfidence: number;
 }
 
@@ -26,73 +27,86 @@ export interface BatchResolutionResult {
   total: number;
   datesResolved: number;
   merchantsResolved: number;
-  incomeSourcesResolved: number;
+  incomesResolved: number;
   categoriesResolved: number;
-  fullyResolved: number; // Date resolved + (merchant OR income source)
-  unresolved: number; // Neither merchant nor income source resolved
+  fullyResolved: number; // Date resolved + (merchant OR income)
+  unresolved: number; // Neither merchant nor income resolved
 }
 
 /**
- * Resolve a single staging transaction (date + merchant + income source)
- * Tries BOTH pattern tables for every transaction - pattern match determines type
+ * Resolve a single staging transaction (date + merchant + income)
+ *
+ * Resolution logic:
+ * 1. Try BOTH pattern tables (merchant and income)
+ * 2. If only ONE matches → use that one (handles refunds, returns, etc.)
+ * 3. If BOTH match → use amount sign to decide (positive = income, negative = merchant)
+ * 4. If NEITHER matches → leave as unknown
  *
  * @param rawDate - Raw date string from bank statement
  * @param rawDescription - Raw description from bank statement
- * @param preferDayFirst - If true, prefer DD/MM/YYYY format
+ * @param rawAmount - Transaction amount (used as tiebreaker when both match)
  * @returns Resolution results
  */
 export async function resolveTransaction(
   rawDate: string | null,
   rawDescription: string | null,
-  preferDayFirst = false,
   rawAmount?: number | null
 ): Promise<TransactionResolution> {
-  const resolvedDate = rawDate ? resolveDate(rawDate, preferDayFirst) : null;
+  const resolvedDate = rawDate ? resolveDate(rawDate) : null;
 
-  // Try BOTH pattern tables for every transaction
-  // Pattern found determines transaction type (not amount sign)
+  // Try BOTH pattern tables
   const merchantMatch = rawDescription ? await resolveMerchant(rawDescription) : null;
-  const incomeSourceMatch = rawDescription ? await resolveIncomeSource(rawDescription) : null;
+  const incomeMatch = rawDescription ? await resolveIncome(rawDescription) : null;
 
-  const resolvedMerchantId = merchantMatch?.merchantId ?? null;
-  const resolvedIncomeSourceId = incomeSourceMatch?.incomeSourceId ?? null;
+  let merchantId: number | null = null;
+  let incomeId: number | null = null;
+  let categoryId: number | null = null;
 
-  // Get category based on amount sign when both match
-  // Positive = income source's category, Negative = merchant's category
-  let resolvedCategoryId: number | null = null;
-  if (merchantMatch && incomeSourceMatch && rawAmount != null) {
-    // Both matched - use amount sign to decide
-    resolvedCategoryId = rawAmount >= 0
-      ? incomeSourceMatch.defaultCategoryId
-      : merchantMatch.defaultCategoryId;
-  } else {
-    // Only one matched - use whichever is available
-    resolvedCategoryId = merchantMatch?.defaultCategoryId
-      ?? incomeSourceMatch?.defaultCategoryId
-      ?? null;
+  const hasMerchant = merchantMatch !== null;
+  const hasIncome = incomeMatch !== null;
+
+  if (hasMerchant && hasIncome) {
+    // BOTH matched - use amount sign as tiebreaker
+    // Positive = prefer income, Negative = prefer merchant
+    if (rawAmount != null && rawAmount > 0) {
+      incomeId = incomeMatch.incomeId;
+      categoryId = incomeMatch.categoryId;
+    } else {
+      merchantId = merchantMatch.merchantId;
+      categoryId = merchantMatch.categoryId;
+    }
+  } else if (hasIncome) {
+    // Only income matched (could be salary, refund classified as income, etc.)
+    incomeId = incomeMatch.incomeId;
+    categoryId = incomeMatch.categoryId;
+  } else if (hasMerchant) {
+    // Only merchant matched (expense, refund, return, etc.)
+    merchantId = merchantMatch.merchantId;
+    categoryId = merchantMatch.categoryId;
   }
+  // else: neither matched, leave all as null
 
   // Calculate confidence based on what was resolved
   let matchConfidence = 0;
   if (resolvedDate) matchConfidence += 0.4;
-  if (resolvedMerchantId || resolvedIncomeSourceId) matchConfidence += 0.5;
+  if (merchantId || incomeId) matchConfidence += 0.5;
   // Bonus if only one type matched (clearer classification)
-  if ((resolvedMerchantId && !resolvedIncomeSourceId) || (!resolvedMerchantId && resolvedIncomeSourceId)) {
+  if ((hasMerchant && !hasIncome) || (!hasMerchant && hasIncome)) {
     matchConfidence += 0.1;
   }
 
   return {
     resolvedDate,
-    resolvedMerchantId,
-    resolvedIncomeSourceId,
-    resolvedCategoryId,
+    merchantId,
+    incomeId,
+    categoryId,
     matchConfidence,
   };
 }
 
 /**
  * Resolve all pending staging transactions in a batch
- * Updates ResolvedDate, ResolvedMerchantID, and ResolvedIncomeSourceID
+ * Updates ResolvedDate, ResolvedMerchantID, and ResolvedIncomeID
  *
  * @param importBatchId - The import batch ID to process
  * @param options - Resolution options
@@ -101,12 +115,12 @@ export async function resolveTransaction(
 export async function resolveBatch(
   importBatchId: string,
   options?: {
-    preferDayFirst?: boolean;
     onlyUnresolved?: boolean; // Only process transactions with null resolved fields
   }
 ): Promise<BatchResolutionResult> {
-  const preferDayFirst = options?.preferDayFirst ?? false;
   const onlyUnresolved = options?.onlyUnresolved ?? true;
+
+  log.debug("BATCH", `Starting batch resolution for ${importBatchId.substring(0, 8)}...`);
 
   // Get transactions to process
   const stagingTransactions = await db.stagingTransaction.findMany({
@@ -116,7 +130,7 @@ export async function resolveBatch(
           status: 'pending',
           OR: [
             { resolvedDate: null },
-            { resolvedMerchantId: null, resolvedIncomeSourceId: null },
+            { merchantId: null, incomeId: null },
           ],
         }
       : {
@@ -125,9 +139,11 @@ export async function resolveBatch(
         },
   });
 
+  log.debug("BATCH", `Found ${stagingTransactions.length} transactions to process`);
+
   let datesResolved = 0;
   let merchantsResolved = 0;
-  let incomeSourcesResolved = 0;
+  let incomesResolved = 0;
   let categoriesResolved = 0;
   let fullyResolved = 0;
   let unresolved = 0;
@@ -137,14 +153,13 @@ export async function resolveBatch(
     const resolution = await resolveTransaction(
       transaction.rawDate,
       transaction.rawDescription,
-      preferDayFirst,
       transaction.rawAmount
     );
 
     // Determine status based on pattern resolution
-    // - "matched" if merchant OR income source found
+    // - "matched" if merchant OR income found
     // - "unknown" if neither found (needs manual review)
-    const hasPatternMatch = resolution.resolvedMerchantId || resolution.resolvedIncomeSourceId;
+    const hasPatternMatch = resolution.merchantId || resolution.incomeId;
     const status = hasPatternMatch ? 'matched' : 'unknown';
 
     // Always update - set resolved fields and status
@@ -152,9 +167,9 @@ export async function resolveBatch(
       where: { id: transaction.id },
       data: {
         resolvedDate: resolution.resolvedDate,
-        resolvedMerchantId: resolution.resolvedMerchantId,
-        resolvedIncomeSourceId: resolution.resolvedIncomeSourceId,
-        resolvedCategoryId: resolution.resolvedCategoryId,
+        merchantId: resolution.merchantId,
+        incomeId: resolution.incomeId,
+        categoryId: resolution.categoryId,
         matchConfidence: resolution.matchConfidence,
         status,
       },
@@ -162,23 +177,35 @@ export async function resolveBatch(
 
     // Track statistics
     const dateOk = resolution.resolvedDate !== null;
-    const merchantOk = resolution.resolvedMerchantId !== null;
-    const incomeSourceOk = resolution.resolvedIncomeSourceId !== null;
-    const categoryOk = resolution.resolvedCategoryId !== null;
+    const merchantOk = resolution.merchantId !== null;
+    const incomeOk = resolution.incomeId !== null;
+    const categoryOk = resolution.categoryId !== null;
 
     if (dateOk) datesResolved++;
     if (merchantOk) merchantsResolved++;
-    if (incomeSourceOk) incomeSourcesResolved++;
+    if (incomeOk) incomesResolved++;
     if (categoryOk) categoriesResolved++;
-    if (dateOk && (merchantOk || incomeSourceOk)) fullyResolved++;
-    if (!merchantOk && !incomeSourceOk) unresolved++;
+    if (dateOk && (merchantOk || incomeOk)) fullyResolved++;
+    if (!merchantOk && !incomeOk) unresolved++;
   }
+
+  log.info("BATCH", `Batch resolution complete`, {
+    data: {
+      total: stagingTransactions.length,
+      datesResolved,
+      merchantsResolved,
+      incomesResolved,
+      categoriesResolved,
+      fullyResolved,
+      unresolved,
+    },
+  });
 
   return {
     total: stagingTransactions.length,
     datesResolved,
     merchantsResolved,
-    incomeSourcesResolved,
+    incomesResolved,
     categoriesResolved,
     fullyResolved,
     unresolved,
@@ -192,24 +219,24 @@ export async function resolveBatch(
  * @param options - Resolution options
  * @returns Batch resolution statistics
  */
-export async function resolveAllPending(options?: {
-  preferDayFirst?: boolean;
-}): Promise<BatchResolutionResult> {
-  const preferDayFirst = options?.preferDayFirst ?? false;
+export async function resolveAllPending(): Promise<BatchResolutionResult> {
+  log.debug("ALL", "Starting resolution of all pending transactions...");
 
   const stagingTransactions = await db.stagingTransaction.findMany({
     where: {
       status: 'pending',
       OR: [
         { resolvedDate: null },
-        { resolvedMerchantId: null, resolvedIncomeSourceId: null },
+        { merchantId: null, incomeId: null },
       ],
     },
   });
 
+  log.debug("ALL", `Found ${stagingTransactions.length} pending transactions`);
+
   let datesResolved = 0;
   let merchantsResolved = 0;
-  let incomeSourcesResolved = 0;
+  let incomesResolved = 0;
   let categoriesResolved = 0;
   let fullyResolved = 0;
   let unresolved = 0;
@@ -218,44 +245,55 @@ export async function resolveAllPending(options?: {
     const resolution = await resolveTransaction(
       transaction.rawDate,
       transaction.rawDescription,
-      preferDayFirst,
       transaction.rawAmount
     );
 
     // Determine status based on pattern resolution
-    const hasPatternMatch = resolution.resolvedMerchantId || resolution.resolvedIncomeSourceId;
+    const hasPatternMatch = resolution.merchantId || resolution.incomeId;
     const status = hasPatternMatch ? 'matched' : 'unknown';
 
     await db.stagingTransaction.update({
       where: { id: transaction.id },
       data: {
         resolvedDate: resolution.resolvedDate,
-        resolvedMerchantId: resolution.resolvedMerchantId,
-        resolvedIncomeSourceId: resolution.resolvedIncomeSourceId,
-        resolvedCategoryId: resolution.resolvedCategoryId,
+        merchantId: resolution.merchantId,
+        incomeId: resolution.incomeId,
+        categoryId: resolution.categoryId,
         matchConfidence: resolution.matchConfidence,
         status,
       },
     });
 
     const dateOk = resolution.resolvedDate !== null;
-    const merchantOk = resolution.resolvedMerchantId !== null;
-    const incomeSourceOk = resolution.resolvedIncomeSourceId !== null;
-    const categoryOk = resolution.resolvedCategoryId !== null;
+    const merchantOk = resolution.merchantId !== null;
+    const incomeOk = resolution.incomeId !== null;
+    const categoryOk = resolution.categoryId !== null;
 
     if (dateOk) datesResolved++;
     if (merchantOk) merchantsResolved++;
-    if (incomeSourceOk) incomeSourcesResolved++;
+    if (incomeOk) incomesResolved++;
     if (categoryOk) categoriesResolved++;
-    if (dateOk && (merchantOk || incomeSourceOk)) fullyResolved++;
-    if (!merchantOk && !incomeSourceOk) unresolved++;
+    if (dateOk && (merchantOk || incomeOk)) fullyResolved++;
+    if (!merchantOk && !incomeOk) unresolved++;
   }
+
+  log.info("ALL", `All pending resolution complete`, {
+    data: {
+      total: stagingTransactions.length,
+      datesResolved,
+      merchantsResolved,
+      incomesResolved,
+      categoriesResolved,
+      fullyResolved,
+      unresolved,
+    },
+  });
 
   return {
     total: stagingTransactions.length,
     datesResolved,
     merchantsResolved,
-    incomeSourcesResolved,
+    incomesResolved,
     categoriesResolved,
     fullyResolved,
     unresolved,

@@ -5,15 +5,15 @@ export interface Pattern {
   notes: string | null;
 }
 
-export interface IncomeSource {
+export interface Income {
   id: number;
-  sourceName: string;
+  name: string;
   personId: number | null;
   person: { id: number; name: string } | null;
-  defaultCategoryId: number | null;
-  defaultCategory: { id: number; categoryName: string } | null;
+  categoryId: number | null;
+  category: { id: number; name: string; color: string | null; group: { color: string | null } | null } | null;
   depositAccountId: number | null;
-  depositAccount: { id: number; accountName: string } | null;
+  depositAccount: { id: number; name: string } | null;
   payFrequency: string | null;
   position: string | null;
   industry: string | null;
@@ -28,7 +28,7 @@ export interface IncomeSource {
   patterns: Pattern[];
 }
 
-export interface IncomeChange {
+export interface Payslip {
   id: number;
   effectiveDate: Date;
   previousGross: number | null;
@@ -46,13 +46,15 @@ export interface PersonOption {
 
 export interface CategoryOption {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
   groupName: string;
+  groupColor: string | null;
 }
 
 export interface AccountOption {
   id: number;
-  accountName: string;
+  name: string;
   institutionName: string | null;
 }
 

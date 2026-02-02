@@ -4,6 +4,9 @@
  */
 
 import { db } from './db';
+import { createLogger } from './logger';
+
+const log = createLogger("Account");
 
 /**
  * Account input from statement JSON
@@ -37,24 +40,28 @@ export async function findOrCreateInstitution(
   name: string,
   type: string = 'Bank'
 ): Promise<{ institutionId: number; created: boolean }> {
+  log.debug("INSTITUTION", `Looking up institution: ${name}`);
+
   // Try to find existing institution
   const existing = await db.institution.findUnique({
-    where: { institutionName: name },
+    where: { name },
   });
 
   if (existing) {
+    log.debug("INSTITUTION", `Found existing: ${name} (ID: ${existing.id})`);
     return { institutionId: existing.id, created: false };
   }
 
   // Create new institution
   const institution = await db.institution.create({
     data: {
-      institutionName: name,
-      institutionType: type,
+      name,
+      type,
       isActive: true,
     },
   });
 
+  log.info("INSTITUTION", `Created new institution: ${name} (ID: ${institution.id}, type: ${type})`);
   return { institutionId: institution.id, created: true };
 }
 
@@ -71,7 +78,7 @@ export async function findAccountByNumber(
 ): Promise<number | null> {
   const account = await db.account.findFirst({
     where: {
-      accountNumber,
+      number: accountNumber,
       ...(institutionId ? { institutionId } : {}),
       isActive: true,
     },
@@ -90,6 +97,8 @@ export async function findAccountByNumber(
 export async function resolveOrCreateAccount(
   input: AccountInput
 ): Promise<ResolvedAccount> {
+  log.debug("RESOLVE", `Resolving account: ${input.accountName} (${input.accountNumber || 'no number'})`);
+
   let institutionId: number | null = null;
   let institutionCreated = false;
 
@@ -105,12 +114,14 @@ export async function resolveOrCreateAccount(
 
   // Try to find existing account by accountNumber
   if (input.accountNumber) {
+    log.debug("LOOKUP", `Searching by account number: ${input.accountNumber}`);
     const existingAccountId = await findAccountByNumber(
       input.accountNumber,
       institutionId ?? undefined
     );
 
     if (existingAccountId) {
+      log.debug("LOOKUP", `Found existing account: ID=${existingAccountId}`);
       return {
         accountId: existingAccountId,
         accountCreated: false,
@@ -118,19 +129,22 @@ export async function resolveOrCreateAccount(
         institutionCreated,
       };
     }
+    log.debug("LOOKUP", "No existing account found");
   }
 
   // Create new account
   const account = await db.account.create({
     data: {
-      accountName: input.accountName,
-      accountNumber: input.accountNumber,
+      name: input.accountName,
+      number: input.accountNumber,
       institutionId,
-      accountType: input.accountType,
+      type: input.accountType,
       currency: input.currency ?? 'CAD',
       isActive: true,
     },
   });
+
+  log.info("CREATE", `Created new account: ${input.accountName} (ID: ${account.id}, type: ${input.accountType})`);
 
   return {
     accountId: account.id,

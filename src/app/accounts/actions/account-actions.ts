@@ -4,17 +4,17 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
 export async function createAccount(data: {
-  accountName: string;
-  accountNumber?: string;
+  name: string;
+  number?: string;
   institutionId?: number;
-  accountType: string;
-  accountNickname?: string;
+  type: string;
+  nickname?: string;
   currency?: string;
   creditLimit?: number;
   interestRate?: number;
   billingCycleDay?: number;
   isJoint?: boolean;
-  primaryHolderId?: number;
+  ownerId?: number;
   notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
@@ -27,17 +27,17 @@ export async function createAccount(data: {
 
     await db.account.create({
       data: {
-        accountName: data.accountName,
-        accountNumber: data.accountNumber || null,
+        name: data.name,
+        number: data.number || null,
         institutionId: data.institutionId || null,
-        accountType: data.accountType,
-        accountNickname: data.accountNickname || null,
+        type: data.type,
+        nickname: data.nickname || null,
         currency: data.currency || "CAD",
         creditLimit: data.creditLimit || null,
         interestRate: data.interestRate || null,
         billingCycleDay: data.billingCycleDay || null,
         isJoint: data.isJoint || false,
-        primaryHolderId: data.primaryHolderId || null,
+        ownerId: data.ownerId || null,
         notes: data.notes || null,
       },
     });
@@ -55,17 +55,17 @@ export async function createAccount(data: {
 export async function updateAccount(
   accountId: number,
   data: {
-    accountName?: string;
-    accountNumber?: string | null;
+    name?: string;
+    number?: string | null;
     institutionId?: number | null;
-    accountType?: string;
-    accountNickname?: string | null;
+    type?: string;
+    nickname?: string | null;
     currency?: string;
     creditLimit?: number | null;
     interestRate?: number | null;
     billingCycleDay?: number | null;
     isJoint?: boolean;
-    primaryHolderId?: number | null;
+    ownerId?: number | null;
     notes?: string | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
@@ -108,9 +108,9 @@ export async function toggleAccountStatus(
         data: { isActive: true },
       });
     }
-    if (account.primaryHolderId) {
+    if (account.ownerId) {
       await db.person.update({
-        where: { id: account.primaryHolderId },
+        where: { id: account.ownerId },
         data: { isActive: true },
       });
     }
@@ -138,7 +138,7 @@ export async function deleteAccount(
 export async function enableAllAccounts(): Promise<{ success: boolean }> {
   const accounts = await db.account.findMany({
     where: { isActive: false },
-    select: { id: true, institutionId: true, primaryHolderId: true },
+    select: { id: true, institutionId: true, ownerId: true },
   });
 
   await db.account.updateMany({
@@ -154,7 +154,7 @@ export async function enableAllAccounts(): Promise<{ success: boolean }> {
     });
   }
 
-  const personIds = [...new Set(accounts.map((a) => a.primaryHolderId).filter(Boolean))] as number[];
+  const personIds = [...new Set(accounts.map((a) => a.ownerId).filter(Boolean))] as number[];
   if (personIds.length > 0) {
     await db.person.updateMany({
       where: { id: { in: personIds } },

@@ -24,10 +24,17 @@ const necessityStyles: Record<string, string> = {
   Wasteful: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 
+// Color palette for categories
+const colorPalette = [
+  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e",
+  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
+  "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#78716c",
+];
+
 interface CategoryGroup {
   id: number;
-  groupName: string;
-  groupType: string;
+  name: string;
+  type: string;
 }
 
 interface AddCategoryDialogProps {
@@ -79,10 +86,11 @@ function AddCategoryForm({
   const [groupId, setGroupId] = useState<number | "">(groups[0]?.id ?? "");
   const [necessityLevel, setNecessityLevel] = useState("Discretionary");
   const [monthlyBudget, setMonthlyBudget] = useState("");
+  const [color, setColor] = useState("#6366f1");
   const [notes, setNotes] = useState("");
 
   const selectedGroup = groups.find((g) => g.id === groupId);
-  const isIncome = selectedGroup?.groupType === "Income";
+  const isIncome = selectedGroup?.type === "Income";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,10 +108,11 @@ function AddCategoryForm({
     setIsPending(true);
 
     const result = await createCategory({
-      categoryName: categoryName.trim(),
+      name: categoryName.trim(),
       groupId: groupId as number,
       necessityLevel,
       monthlyBudget: monthlyBudget ? parseFloat(monthlyBudget) : undefined,
+      color: color || undefined,
       notes: notes.trim() || undefined,
     });
 
@@ -151,7 +160,7 @@ function AddCategoryForm({
               <option value="">Select a group...</option>
               {groups.map((group) => (
                 <option key={group.id} value={group.id}>
-                  {group.groupName} ({group.groupType})
+                  {group.name} ({group.type})
                 </option>
               ))}
             </select>
@@ -196,6 +205,37 @@ function AddCategoryForm({
               />
             </div>
           )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Color</label>
+            <div className="flex flex-wrap gap-1.5">
+              {colorPalette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-6 h-6 rounded-md transition-all ${
+                    color === c ? "ring-2 ring-offset-2 ring-violet-500" : "hover:scale-110"
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <div
+                className="w-8 h-8 rounded-md border"
+                style={{ backgroundColor: color }}
+              />
+              <Input
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="#000000"
+                className="w-28 font-mono text-sm"
+              />
+            </div>
+          </div>
 
           <div className="space-y-2">
             <label htmlFor="notes" className="text-sm font-medium">

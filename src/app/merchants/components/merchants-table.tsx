@@ -58,10 +58,10 @@ export function MerchantsTable({
                       rel="noopener noreferrer"
                       className="font-medium hover:text-violet-600 hover:underline"
                     >
-                      {merchant.merchantName}
+                      {merchant.name}
                     </a>
                   ) : (
-                    <span className="font-medium">{merchant.merchantName}</span>
+                    <span className="font-medium">{merchant.name}</span>
                   )}
                   {merchant.notes && (
                     <span className="text-xs text-muted-foreground truncate block">
@@ -82,9 +82,19 @@ export function MerchantsTable({
                 </div>
               </TableCell>
               <TableCell>
-                {merchant.defaultCategory ? (
-                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                    {merchant.defaultCategory.categoryName}
+                {merchant.category ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      backgroundColor: `${merchant.category.color || merchant.category.group?.color || "#6366f1"}20`,
+                      color: merchant.category.color || merchant.category.group?.color || "#6366f1",
+                    }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: merchant.category.color || merchant.category.group?.color || "#6366f1" }}
+                    />
+                    {merchant.category.name}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">—</span>

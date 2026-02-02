@@ -3,8 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
-export async function addIncomeChange(
-  incomeSourceId: number,
+// Get salary increase threshold from env (default 5%)
+const SALARY_INCREASE_THRESHOLD = parseFloat(process.env.SALARY_INCREASE_THRESHOLD || "5");
+
+export interface AddPayslipResult {
+  success: boolean;
+  error?: string;
+  suggestNewPosition?: boolean;
+  increasePercent?: number;
+}
+
+export async function addPayslip(
+  incomeId: number,
   data: {
     effectiveDate: Date;
     newGross: number;
@@ -12,19 +22,48 @@ export async function addIncomeChange(
     changeReason: string;
     notes?: string;
   }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<AddPayslipResult> {
   try {
-    const incomeSource = await db.incomeSource.findUnique({
-      where: { id: incomeSourceId },
-      select: { currentGross: true, currentNet: true },
+    // Get income with category info to check if it's employment income
+    const income = await db.income.findUnique({
+      where: { id: incomeId },
+      select: {
+        currentGross: true,
+        currentNet: true,
+        positionId: true,
+        category: {
+          select: {
+            name: true,
+            group: { select: { name: true } },
+          },
+        },
+      },
     });
 
-    await db.incomeChange.create({
+    // Check if this is a Salary category in Employment Income group
+    const isSalary =
+      income?.category?.group?.name === "Employment Income" &&
+      income?.category?.name === "Salary";
+
+    // Calculate increase percentage
+    let increasePercent = 0;
+    let suggestNewPosition = false;
+
+    if (income?.currentGross && income.currentGross > 0) {
+      increasePercent = ((data.newGross - income.currentGross) / income.currentGross) * 100;
+
+      // Only suggest new position for Salary income with significant increase
+      if (isSalary && income.positionId && increasePercent > SALARY_INCREASE_THRESHOLD) {
+        suggestNewPosition = true;
+      }
+    }
+
+    await db.payslip.create({
       data: {
-        incomeSourceId,
+        incomeId,
         effectiveDate: data.effectiveDate,
-        previousGross: incomeSource?.currentGross,
-        previousNet: incomeSource?.currentNet,
+        previousGross: income?.currentGross,
+        previousNet: income?.currentNet,
         newGross: data.newGross,
         newNet: data.newNet,
         changeReason: data.changeReason,
@@ -32,8 +71,8 @@ export async function addIncomeChange(
       },
     });
 
-    await db.incomeSource.update({
-      where: { id: incomeSourceId },
+    await db.income.update({
+      where: { id: incomeId },
       data: {
         currentGross: data.newGross,
         currentNet: data.newNet,
@@ -41,39 +80,43 @@ export async function addIncomeChange(
     });
 
     revalidatePath("/income");
-    return { success: true };
+    return {
+      success: true,
+      suggestNewPosition,
+      increasePercent: Math.round(increasePercent * 10) / 10,
+    };
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") {
-      return { success: false, error: "An income change already exists for this date" };
+      return { success: false, error: "An payslip already exists for this date" };
     }
-    return { success: false, error: "Failed to add income change" };
+    return { success: false, error: "Failed to add payslip" };
   }
 }
 
-export async function deleteIncomeChange(
-  incomeChangeId: number
+export async function deletePayslip(
+  payslipId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const incomeChange = await db.incomeChange.findUnique({
-      where: { id: incomeChangeId },
-      select: { incomeSourceId: true },
+    const payslip = await db.payslip.findUnique({
+      where: { id: payslipId },
+      select: { incomeId: true },
     });
 
-    if (!incomeChange) {
+    if (!payslip) {
       return { success: false, error: "Income change not found" };
     }
 
-    await db.incomeChange.delete({
-      where: { id: incomeChangeId },
+    await db.payslip.delete({
+      where: { id: payslipId },
     });
 
-    const latestChange = await db.incomeChange.findFirst({
-      where: { incomeSourceId: incomeChange.incomeSourceId },
+    const latestChange = await db.payslip.findFirst({
+      where: { incomeId: payslip.incomeId },
       orderBy: { effectiveDate: "desc" },
     });
 
-    await db.incomeSource.update({
-      where: { id: incomeChange.incomeSourceId },
+    await db.income.update({
+      where: { id: payslip.incomeId },
       data: {
         currentGross: latestChange?.newGross || null,
         currentNet: latestChange?.newNet || null,
@@ -83,12 +126,12 @@ export async function deleteIncomeChange(
     revalidatePath("/income");
     return { success: true };
   } catch {
-    return { success: false, error: "Failed to delete income change" };
+    return { success: false, error: "Failed to delete payslip" };
   }
 }
 
 export async function getIncomeHistory(
-  incomeSourceId: number
+  incomeId: number
 ): Promise<{
   id: number;
   effectiveDate: Date;
@@ -99,8 +142,8 @@ export async function getIncomeHistory(
   changeReason: string;
   notes: string | null;
 }[]> {
-  const history = await db.incomeChange.findMany({
-    where: { incomeSourceId },
+  const history = await db.payslip.findMany({
+    where: { incomeId },
     orderBy: { effectiveDate: "desc" },
   });
 

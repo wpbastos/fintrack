@@ -1,5 +1,5 @@
 // Prisma schema for FinTrack
-// 3 core tables: ImportLog, StagingTransactions, Transactions
+// Core tables: Import, StagingTransaction, Transaction
 
 generator client {
   provider = "prisma-client-js"
@@ -10,367 +10,398 @@ datasource db {
   provider = "sqlite"
 }
 
-// Import Log (audit trail) - tracks every import batch
-model ImportLog {
-  id                   Int       @id @default(autoincrement()) @map("ImportID")
-  fileName             String    @map("FileName")
-  filePath             String?   @map("FilePath")
-  sourceType           String    @map("SourceType") // Statement, Receipt, Payslip, Manual
-  accountId            Int?      @map("AccountID") // FK removed for now
-  periodStart          DateTime? @map("PeriodStart")
-  periodEnd            DateTime? @map("PeriodEnd")
-  openingBalance       Float?    @map("OpeningBalance")
-  closingBalance       Float?    @map("ClosingBalance")
-  transactionCount     Int       @default(0) @map("TransactionCount")
-  addedCount           Int       @default(0) @map("AddedCount")
-  matchedCount         Int       @default(0) @map("MatchedCount")
-  skippedCount         Int       @default(0) @map("SkippedCount")
-  unknownCount         Int       @default(0) @map("UnknownCount")
-  contentHash          String?   @unique @map("ContentHash")
-  statementFingerprint String?   @unique @map("StatementFingerprint") // {AccountID}|{PeriodEnd}|{ClosingBalance}|{TxnCount}
-  status               String    @default("Pending") @map("Status") // Pending, Processing, Completed, Failed, Partial
-  processedAt          DateTime? @map("ProcessedAt")
-  archivedPath         String?   @map("ArchivedPath")
-  notes                String?   @map("Notes")
-  createdAt            DateTime  @default(now()) @map("CreatedAt")
+// Import audit trail - tracks every import batch
+model Import {
+  id                   Int       @id @default(autoincrement()) @map("id")
+  fileName             String    @map("file_name")
+  sourceType           String    @map("source_type") // Statement, Receipt, Payslip, Manual
+  accountId            Int?      @map("account_id")
+  account              Account?  @relation(fields: [accountId], references: [id])
+  periodStart          DateTime? @map("period_start")
+  periodEnd            DateTime? @map("period_end")
+  openingBalance       Float?    @map("opening_balance")
+  closingBalance       Float?    @map("closing_balance")
+  transactionCount     Int       @default(0) @map("transaction_count")
+  addedCount           Int       @default(0) @map("added_count")
+  matchedCount         Int       @default(0) @map("matched_count")
+  unknownCount         Int       @default(0) @map("unknown_count")
+  content              String?   @map("content") // Original JSON content
+  contentHash          String?   @unique @map("content_hash")
+  statementFingerprint String?   @unique @map("statement_fingerprint")
+  status               String    @default("staged") @map("status") // staged, finalized
+  processedAt          DateTime? @map("processed_at")
+
+  // AI resolve tracking
+  aiStatus             String    @default("idle") @map("ai_status") // idle, resolving, complete, error
+  aiStartedAt          DateTime? @map("ai_started_at")
+  aiResult             String?   @map("ai_result") // JSON with results
+
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   // Relations
   stagingTransactions StagingTransaction[]
   transactions        Transaction[]
 
-  @@map("ImportLog")
+  @@index([status])
+  @@map("import")
 }
 
 // Staging table for batch imports (temporary holding)
-// Transactions land here first, get reviewed, then move to Transactions
 model StagingTransaction {
-  id                   Int       @id @default(autoincrement()) @map("StagingID")
-  importBatchId        String    @map("ImportBatchID") // Groups transactions from same import
-  rawDate              String?   @map("RawDate") // Date as read from statement (unparsed)
-  rawDescription       String?   @map("RawDescription") // Description as read from statement
-  rawAmount            Float?    @map("RawAmount") // Amount as read (NEGATIVE=expense, POSITIVE=income)
-  accountId            Int?      @map("AccountID") // FK removed for now
-  sourceFile           String?   @map("SourceFile") // Original filename
+  id                   Int       @id @default(autoincrement()) @map("id")
+  importBatchId        String    @map("import_batch_id")
+  rawDate              String?   @map("raw_date")
+  rawDescription       String?   @map("raw_description")
+  rawAmount            Float?    @map("raw_amount")
+  accountId            Int?      @map("account_id")
+  account              Account?  @relation(fields: [accountId], references: [id])
 
-  // Resolved after batch matching:
-  resolvedDate           DateTime?     @map("ResolvedDate") // Parsed/cleaned date
-  resolvedMerchantId     Int?          @map("ResolvedMerchantID")
-  resolvedMerchant       Merchant?     @relation(fields: [resolvedMerchantId], references: [id])
-  resolvedCategoryId     Int?          @map("ResolvedCategoryID")
-  resolvedCategory       Category?     @relation(fields: [resolvedCategoryId], references: [id])
-  resolvedIncomeSourceId Int?          @map("ResolvedIncomeSourceID")
-  resolvedIncomeSource   IncomeSource? @relation(fields: [resolvedIncomeSourceId], references: [id])
-  resolvedPersonId       Int?          @map("ResolvedPersonID")
-  resolvedPerson         Person?       @relation(fields: [resolvedPersonId], references: [id])
+  // Resolved after batch matching
+  resolvedDate         DateTime? @map("resolved_date")
+  merchantId           Int?      @map("merchant_id")
+  merchant             Merchant? @relation(fields: [merchantId], references: [id])
+  categoryId           Int?      @map("category_id")
+  category             Category? @relation(fields: [categoryId], references: [id])
+  incomeId             Int?      @map("income_id")
+  income               Income?   @relation(fields: [incomeId], references: [id])
+  personId             Int?      @map("person_id")
+  person               Person?   @relation(fields: [personId], references: [id])
 
-  // Status: pending, matched, unknown, imported, skipped
-  status               String    @default("pending") @map("Status")
-  matchConfidence      Float?    @map("MatchConfidence") // 0.0-1.0
-  notes                String?   @map("Notes")
-  createdAt            DateTime  @default(now()) @map("CreatedAt")
+  // Status: pending, matched, unknown, suggested, imported, skipped
+  status               String    @default("pending") @map("status")
+  matchConfidence      Float?    @map("match_confidence")
+  notes                String?   @map("notes")
+  createdAt            DateTime  @default(now()) @map("created_at")
 
-  // Relation to ImportLog
-  importLogId          Int?      @map("ImportLogID")
-  importLog            ImportLog? @relation(fields: [importLogId], references: [id])
+  // Relation to Import
+  importId             Int?      @map("import_id")
+  import               Import?   @relation(fields: [importId], references: [id])
 
-  @@map("StagingTransactions")
+  @@index([status])
+  @@index([importBatchId])
+  @@map("staging_transaction")
 }
 
 // Main Transactions table
-// Central table for all financial transactions (actual and predicted)
 model Transaction {
-  id                  Int           @id @default(autoincrement()) @map("TransactionID")
-  date                DateTime      @map("Date") // Transaction date
-  description         String        @map("Description") // Clean/normalized description
-  originalDescription String?       @map("OriginalDescription") // Raw from bank statement
-  amount              Float         @map("Amount") // POSITIVE=income, NEGATIVE=expense
-  accountId           Int?          @map("AccountID") // FK removed for now
-  categoryId          Int?          @map("CategoryID")
-  category            Category?     @relation(fields: [categoryId], references: [id])
-  merchantId          Int?          @map("MerchantID")
-  merchant            Merchant?     @relation(fields: [merchantId], references: [id])
-  personId            Int?          @map("PersonID")
-  person              Person?       @relation(fields: [personId], references: [id])
-  incomeSourceId      Int?          @map("IncomeSourceID")
-  incomeSource        IncomeSource? @relation(fields: [incomeSourceId], references: [id])
+  id                  Int       @id @default(autoincrement()) @map("id")
+  date                DateTime  @map("date")
+  description         String    @map("description")
+  originalDescription String?   @map("original_description")
+  amount              Float     @map("amount")
+  accountId           Int?      @map("account_id")
+  account             Account?  @relation(fields: [accountId], references: [id])
+  categoryId          Int?      @map("category_id")
+  category            Category? @relation(fields: [categoryId], references: [id])
+  merchantId          Int?      @map("merchant_id")
+  merchant            Merchant? @relation(fields: [merchantId], references: [id])
+  personId            Int?      @map("person_id")
+  person              Person?   @relation(fields: [personId], references: [id])
+  incomeId            Int?      @map("income_id")
+  income              Income?   @relation(fields: [incomeId], references: [id])
 
-  // Import reference (nullable for manual entries)
-  importId            Int?      @map("ImportID")
-  importLog           ImportLog? @relation(fields: [importId], references: [id])
+  // Import reference
+  importId            Int?      @map("import_id")
+  import              Import?   @relation(fields: [importId], references: [id])
 
   // Flags
-  reconciled          Boolean   @default(false) @map("Reconciled")
-  isDuplicate         Boolean   @default(false) @map("IsDuplicate")
-  isPredicted         Boolean   @default(false) @map("IsPredicted")
-  isRecurring         Boolean   @default(false) @map("IsRecurring")
-  recurringId         Int?      @map("RecurringID") // FK removed for now
-  hasAllocations      Boolean   @default(false) @map("HasAllocations")
+  isPredicted         Boolean   @default(false) @map("is_predicted")
+  isRecurring         Boolean   @default(false) @map("is_recurring")
+  recurringId         Int?      @map("recurring_id")
+  hasAllocations      Boolean   @default(false) @map("has_allocations")
 
-  notes               String?   @map("Notes")
-  createdAt           DateTime  @default(now()) @map("CreatedAt")
-  updatedAt           DateTime  @updatedAt @map("UpdatedAt")
+  notes               String?   @map("notes")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  @@map("Transactions")
+  @@index([date])
+  @@map("transaction")
 }
 
-// Merchants (master data - one row per actual merchant)
-// Stores where money is spent, with pattern matching via MerchantPatterns
+// Merchants (where money is spent)
 model Merchant {
-  id                   Int       @id @default(autoincrement()) @map("MerchantID")
-  merchantName         String    @unique @map("MerchantName") // Clean display name (e.g., "Amazon", "Costco")
-  defaultCategoryId    Int?      @map("DefaultCategoryID")
-  defaultCategory      Category? @relation(fields: [defaultCategoryId], references: [id])
-  defaultPersonId      Int?      @map("DefaultPersonID") // Who usually shops here
-  defaultAccountId     Int?      @map("DefaultAccountID") // Which card usually used
-  merchantType         String?   @map("MerchantType") // Classification (e.g., "Grocery", "Restaurant", "Subscription")
-  website              String?   @map("Website")
-  hasAlternative       Boolean   @default(false) @map("HasAlternative") // cheaper alternative exists
-  alternativeName      String?   @map("AlternativeName") // Suggested alternative
-  alternativeSavings   Float?    @map("AlternativeSavings") // Estimated savings per transaction
-  isImpulseProne       Boolean   @default(false) @map("IsImpulseProne") // warn about impulse purchases
-  isActive             Boolean   @default(true) @map("IsActive")
-  notes                String?   @map("Notes")
-  createdAt            DateTime  @default(now()) @map("CreatedAt")
-  updatedAt            DateTime  @updatedAt @map("UpdatedAt")
+  id                Int       @id @default(autoincrement()) @map("id")
+  name              String    @unique @map("name")
+  categoryId        Int?      @map("category_id")
+  category          Category? @relation(fields: [categoryId], references: [id])
+  personId          Int?      @map("person_id")
+  person            Person?   @relation(fields: [personId], references: [id])
+  accountId         Int?      @map("account_id")
+  account           Account?  @relation(fields: [accountId], references: [id])
+  type              String?   @map("type")
+  website           String?   @map("website")
+  hasAlternative    Boolean   @default(false) @map("has_alternative")
+  alternativeName   String?   @map("alternative_name")
+  alternativeSavings Float?   @map("alternative_savings")
+  isImpulseProne    Boolean   @default(false) @map("is_impulse_prone")
+  isActive          Boolean   @default(true) @map("is_active")
+  notes             String?   @map("notes")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   // Relations
   patterns             MerchantPattern[]
   stagingTransactions  StagingTransaction[]
   transactions         Transaction[]
 
-  @@map("Merchants")
+  @@map("merchant")
 }
 
-// Financial Institutions (banks, credit unions, brokerages)
+// Financial Institutions
 model Institution {
-  id              Int       @id @default(autoincrement()) @map("InstitutionID")
-  institutionName String    @unique @map("InstitutionName")
-  institutionType String    @map("InstitutionType") // Bank, Credit Union, Brokerage, Other
-  website         String?   @map("Website")
-  isActive        Boolean   @default(false) @map("IsActive")
-  notes           String?   @map("Notes")
-  createdAt       DateTime  @default(now()) @map("CreatedAt")
+  id        Int      @id @default(autoincrement()) @map("id")
+  name      String   @unique @map("name")
+  type      String   @map("type") // Bank, Credit Union, Brokerage, Other
+  website   String?  @map("website")
+  isActive  Boolean  @default(false) @map("is_active")
+  notes     String?  @map("notes")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   accounts Account[]
 
-  @@map("Institutions")
+  @@map("institution")
 }
 
-// Persons (family members who use accounts/cards or receive income)
+// Persons (family members)
 model Person {
-  id        Int      @id @default(autoincrement()) @map("PersonID")
-  name      String   @unique @map("Name")
-  email     String?  @map("Email")
-  isActive  Boolean  @default(true) @map("IsActive")
-  notes     String?  @map("Notes")
-  createdAt DateTime @default(now()) @map("CreatedAt")
-  updatedAt DateTime @updatedAt @map("UpdatedAt")
+  id        Int      @id @default(autoincrement()) @map("id")
+  name      String   @unique @map("name")
+  email     String?  @map("email")
+  isActive  Boolean  @default(true) @map("is_active")
+  notes     String?  @map("notes")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   accounts            Account[]
+  merchants           Merchant[]
   transactions        Transaction[]
   stagingTransactions StagingTransaction[]
-  incomeSources       IncomeSource[]
+  incomes             Income[]
 
-  @@map("Persons")
+  @@map("person")
 }
 
-// Financial Accounts (bank accounts, credit cards, loans, investments)
+// Financial Accounts
 model Account {
-  id              Int          @id @default(autoincrement()) @map("AccountID")
-  accountName     String       @map("AccountName")
-  accountNumber   String?      @map("AccountNumber") // Last 4 digits or full number
-  institutionId   Int?         @map("InstitutionID")
+  id              Int          @id @default(autoincrement()) @map("id")
+  name            String       @map("name")
+  number          String?      @map("number")
+  institutionId   Int?         @map("institution_id")
   institution     Institution? @relation(fields: [institutionId], references: [id])
-  accountType     String       @map("AccountType") // Chequing, Savings, Credit Card, Line of Credit, Loan, Mortgage, Investment, RRSP, TFSA, RESP, FHSA, Other
-  accountNickname String?      @map("AccountNickname")
-  currency        String       @default("CAD") @map("Currency")
-  creditLimit     Float?       @map("CreditLimit")
-  interestRate    Float?       @map("InterestRate")
-  billingCycleDay   Int?       @map("BillingCycleDay") // Day of month statement closes (1-31)
-  isJoint           Boolean    @default(false) @map("IsJoint")
-  primaryHolderId   Int?       @map("PrimaryHolderID")
-  primaryHolder     Person?    @relation(fields: [primaryHolderId], references: [id])
-  isActive          Boolean    @default(true) @map("IsActive")
-  notes           String?      @map("Notes")
-  createdAt       DateTime     @default(now()) @map("CreatedAt")
-  updatedAt       DateTime     @updatedAt @map("UpdatedAt")
+  type            String       @map("type")
+  nickname        String?      @map("nickname")
+  currency        String       @default("CAD") @map("currency")
+  creditLimit     Float?       @map("credit_limit")
+  interestRate    Float?       @map("interest_rate")
+  billingCycleDay Int?         @map("billing_cycle_day")
+  isJoint         Boolean      @default(false) @map("is_joint")
+  ownerId         Int?         @map("owner_id")
+  owner           Person?      @relation(fields: [ownerId], references: [id])
+  isActive        Boolean      @default(true) @map("is_active")
+  notes           String?      @map("notes")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  incomeSources   IncomeSource[]
+  imports             Import[]
+  stagingTransactions StagingTransaction[]
+  transactions        Transaction[]
+  merchants           Merchant[]
+  incomes             Income[]
+  budgetPeriods       BudgetPeriod[]
 
-  @@unique([accountName, institutionId])
-  @@map("Accounts")
+  @@unique([name, institutionId])
+  @@map("account")
 }
 
-// Merchant Patterns (multiple patterns can map to one merchant)
-// This normalizes the pattern matching - no more duplicate merchant data
+// Merchant Patterns
 model MerchantPattern {
-  id         Int      @id @default(autoincrement()) @map("PatternID")
-  merchantId Int      @map("MerchantID")
+  id         Int      @id @default(autoincrement()) @map("id")
+  merchantId Int      @map("merchant_id")
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  pattern    String   @unique @map("Pattern") // Pattern to match in descriptions
-  priority   Int      @default(0) @map("Priority") // Higher priority wins when multiple patterns match
-  notes      String?  @map("Notes")
-  createdAt  DateTime @default(now()) @map("CreatedAt")
+  pattern    String   @unique @map("pattern")
+  priority   Int      @default(0) @map("priority")
+  notes      String?  @map("notes")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  @@map("MerchantPatterns")
+  @@map("merchant_pattern")
 }
 
-// Category Groups (high-level grouping)
+// Category Groups
 model CategoryGroup {
-  id        Int      @id @default(autoincrement()) @map("GroupID")
-  groupName String   @unique @map("GroupName")
-  groupType String   @map("GroupType") // Income, Expense, Transfer, Investment
-  sortOrder Int?     @map("SortOrder")
-  isActive  Boolean  @default(true) @map("IsActive")
-  notes     String?  @map("Notes")
+  id        Int      @id @default(autoincrement()) @map("id")
+  name      String   @unique @map("name")
+  type      String   @map("type") // Income, Expense, Transfer, Investment
+  color     String?  @map("color") // Hex color code for UI display
+  sortOrder Int?     @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  notes     String?  @map("notes")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   categories Category[]
 
-  @@map("CategoryGroups")
+  @@map("category_group")
 }
 
-// Transaction Categories (with self-reference for hierarchy)
-// CategoryType is inherited from CategoryGroup.groupType
+// Transaction Categories
 model Category {
-  id               Int       @id @default(autoincrement()) @map("CategoryID")
-  categoryName     String    @unique @map("CategoryName")
-  groupId          Int?      @map("GroupID")
+  id               Int            @id @default(autoincrement()) @map("id")
+  name             String         @unique @map("name")
+  groupId          Int?           @map("group_id")
   group            CategoryGroup? @relation(fields: [groupId], references: [id])
-  parentCategoryId Int?      @map("ParentCategoryID")
-  parentCategory   Category? @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
-  childCategories  Category[] @relation("CategoryHierarchy")
-  necessityLevel   String    @default("Discretionary") @map("NecessityLevel") // Essential, Important, Discretionary, Wasteful
-  monthlyBudget    Float?    @map("MonthlyBudget")
-  sortOrder        Int?      @map("SortOrder") // Relative within group (1, 2, 3...)
-  isActive         Boolean   @default(true) @map("IsActive")
-  notes            String?   @map("Notes")
-  createdAt        DateTime  @default(now()) @map("CreatedAt")
-  updatedAt        DateTime  @updatedAt @map("UpdatedAt")
+  parentId         Int?           @map("parent_id")
+  parent           Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children         Category[]     @relation("CategoryHierarchy")
+  color            String?        @map("color") // Hex color code for UI display
+  necessityLevel   String         @default("Discretionary") @map("necessity_level")
+  monthlyBudget    Float?         @map("monthly_budget")
+  sortOrder        Int?           @map("sort_order")
+  isActive         Boolean        @default(true) @map("is_active")
+  notes            String?        @map("notes")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
 
   // Relations
   merchants            Merchant[]
-  incomeSources        IncomeSource[]
+  incomes              Income[]
   stagingTransactions  StagingTransaction[]
   transactions         Transaction[]
   budgetPeriods        BudgetPeriod[]
 
-  @@map("Categories")
+  @@map("category")
 }
 
-// Budget Period tracking for historical budget cycles
+// Budget Period tracking
 model BudgetPeriod {
-  id             Int       @id @default(autoincrement()) @map("PeriodID")
-  categoryId     Int       @map("CategoryID")
+  id             Int       @id @default(autoincrement()) @map("id")
+  categoryId     Int       @map("category_id")
   category       Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  accountId      Int?      @map("AccountID") // Optional: for credit card billing cycles
-  periodStart    DateTime  @map("PeriodStart")
-  periodEnd      DateTime  @map("PeriodEnd")
-  budgetedAmount Float     @map("BudgetedAmount") // Snapshot of budget at period start
-  actualSpent    Float     @default(0) @map("ActualSpent")
-  status         String    @default("open") @map("Status") // open, closed
-  closedAt       DateTime? @map("ClosedAt")
-  notes          String?   @map("Notes")
-  createdAt      DateTime  @default(now()) @map("CreatedAt")
-  updatedAt      DateTime  @updatedAt @map("UpdatedAt")
+  accountId      Int?      @map("account_id")
+  account        Account?  @relation(fields: [accountId], references: [id])
+  periodStart    DateTime  @map("period_start")
+  periodEnd      DateTime  @map("period_end")
+  budgetedAmount Float     @map("budgeted_amount")
+  actualSpent    Float     @default(0) @map("actual_spent")
+  status         String    @default("open") @map("status")
+  closedAt       DateTime? @map("closed_at")
+  notes          String?   @map("notes")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@unique([categoryId, periodStart])
-  @@map("BudgetPeriods")
+  @@index([status])
+  @@map("budget_period")
 }
 
-// ============================================================================
-// INCOME SOURCE TRACKING
-// ============================================================================
-
-// Income Sources (where income comes from - employers, government, investments, etc.)
-// Mirrors Merchant structure for expenses
-model IncomeSource {
-  id               Int       @id @default(autoincrement()) @map("IncomeSourceID")
-  sourceName       String    @unique @map("SourceName") // Name (e.g., "TechCorp Inc.", "CRA", "TD Dividends")
-  personId         Int?      @map("PersonID") // Who receives this income
-  person           Person?   @relation(fields: [personId], references: [id])
-  defaultCategoryId Int?     @map("DefaultCategoryID") // Usually "Salary", "Bonus", "Dividend", etc.
-  defaultCategory  Category? @relation(fields: [defaultCategoryId], references: [id])
-  depositAccountId Int?      @map("DepositAccountID") // Where payments deposit
-  depositAccount   Account?  @relation(fields: [depositAccountId], references: [id])
-
-  // Payment details
-  payFrequency     String?   @map("PayFrequency") // Weekly, Bi-weekly, Semi-monthly, Monthly, Irregular
-
-  // Details
-  position         String?   @map("Position") // Job title
-  industry         String?   @map("Industry") // Industry sector
-  location         String?   @map("Location") // Work location
-  website          String?   @map("Website")
-  startDate        DateTime? @map("StartDate") // Start date
-  endDate          DateTime? @map("EndDate") // End date (NULL if current)
-
-  // Current payment amount (denormalized from latest IncomeChange for quick access)
-  currentGross     Float?    @map("CurrentGross")
-  currentNet       Float?    @map("CurrentNet")
-
-  isActive         Boolean   @default(true) @map("IsActive")
-  notes            String?   @map("Notes")
-  createdAt        DateTime  @default(now()) @map("CreatedAt")
-  updatedAt        DateTime  @updatedAt @map("UpdatedAt")
+// Employers (companies/organizations that pay income)
+model Employer {
+  id        Int      @id @default(autoincrement()) @map("id")
+  name      String   @unique @map("name")
+  industry  String?  @map("industry")
+  location  String?  @map("location")
+  website   String?  @map("website")
+  isActive  Boolean  @default(true) @map("is_active")
+  notes     String?  @map("notes")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  patterns            IncomeSourcePattern[]
-  incomeHistory       IncomeChange[]
+  positions Position[]
+
+  @@map("employer")
+}
+
+// Positions (job roles at employers - for career tracking)
+model Position {
+  id         Int       @id @default(autoincrement()) @map("id")
+  title      String    @map("title")
+  department String?   @map("department")
+  employerId Int       @map("employer_id")
+  employer   Employer  @relation(fields: [employerId], references: [id])
+  startDate  DateTime? @map("start_date")
+  endDate    DateTime? @map("end_date")
+  isActive   Boolean   @default(true) @map("is_active")
+  notes      String?   @map("notes")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  incomes Income[]
+
+  @@unique([title, employerId])
+  @@map("position")
+}
+
+// Income (salary, benefits, investments, etc.)
+model Income {
+  id               Int       @id @default(autoincrement()) @map("id")
+  name             String    @unique @map("name")
+  type             String    @default("Employment") @map("type") // Employment, Government, Investment, Gig, Reimbursement, Other
+  positionId       Int?      @map("position_id")
+  position         Position? @relation(fields: [positionId], references: [id])
+  personId         Int?      @map("person_id")
+  person           Person?   @relation(fields: [personId], references: [id])
+  categoryId       Int?      @map("category_id")
+  category         Category? @relation(fields: [categoryId], references: [id])
+  depositAccountId Int?      @map("deposit_account_id")
+  depositAccount   Account?  @relation(fields: [depositAccountId], references: [id])
+  payFrequency     String?   @map("pay_frequency") // Weekly, Bi-weekly, Semi-monthly, Monthly, Quarterly, Annually, Irregular
+  startDate        DateTime? @map("start_date")
+  endDate          DateTime? @map("end_date")
+  initialGross     Float?    @map("initial_gross") // Starting salary (for growth tracking)
+  initialNet       Float?    @map("initial_net")
+  currentGross     Float?    @map("current_gross")
+  currentNet       Float?    @map("current_net")
+  isActive         Boolean   @default(true) @map("is_active")
+  notes            String?   @map("notes")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  patterns            IncomePattern[]
+  payslips            Payslip[]
   stagingTransactions StagingTransaction[]
   transactions        Transaction[]
 
-  @@map("IncomeSources")
+  @@map("income")
 }
 
-// Income Source Patterns (multiple patterns can map to one income source)
-// Same structure as MerchantPattern for consistency
-model IncomeSourcePattern {
-  id             Int          @id @default(autoincrement()) @map("PatternID")
-  incomeSourceId Int          @map("IncomeSourceID")
-  incomeSource   IncomeSource @relation(fields: [incomeSourceId], references: [id], onDelete: Cascade)
-  pattern        String       @unique @map("Pattern") // Pattern to match (e.g., "TECHCORP PAYROLL", "CRA DIRECT DEP")
-  priority       Int          @default(10) @map("Priority") // Higher priority wins
-  notes          String?      @map("Notes")
-  createdAt      DateTime     @default(now()) @map("CreatedAt")
+// Income Patterns (for matching bank descriptions)
+model IncomePattern {
+  id        Int      @id @default(autoincrement()) @map("id")
+  incomeId  Int      @map("income_id")
+  income    Income   @relation(fields: [incomeId], references: [id], onDelete: Cascade)
+  pattern   String   @unique @map("pattern")
+  priority  Int      @default(10) @map("priority")
+  notes     String?  @map("notes")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("IncomeSourcePatterns")
+  @@map("income_pattern")
 }
 
-// Income Change History (tracks all payment changes over time)
-// Similar concept to BudgetPeriod but for income changes
-model IncomeChange {
-  id             Int          @id @default(autoincrement()) @map("IncomeChangeID")
-  incomeSourceId Int          @map("IncomeSourceID")
-  incomeSource   IncomeSource @relation(fields: [incomeSourceId], references: [id], onDelete: Cascade)
-  effectiveDate  DateTime     @map("EffectiveDate") // When the change took effect
+// Payslip (pay history for income sources)
+model Payslip {
+  id            Int      @id @default(autoincrement()) @map("id")
+  incomeId      Int      @map("income_id")
+  income        Income   @relation(fields: [incomeId], references: [id], onDelete: Cascade)
+  effectiveDate DateTime @map("effective_date")
+  previousGross Float?   @map("previous_gross")
+  previousNet   Float?   @map("previous_net")
+  newGross      Float    @map("new_gross")
+  newNet        Float    @map("new_net")
+  changeReason  String   @map("change_reason")
+  notes         String?  @map("notes")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  // Payment amounts
-  previousGross Float?    @map("PreviousGross") // NULL for initial record
-  previousNet   Float?    @map("PreviousNet") // NULL for initial record
-  newGross      Float     @map("NewGross")
-  newNet        Float     @map("NewNet")
-
-  // Change reason for tracking
-  // Initial: First payment when started
-  // Annual Review: Regular yearly review
-  // Promotion: Job title/role change with raise
-  // Cost of Living: Inflation adjustment
-  // Role Change: New responsibilities without title change
-  // Annual Recalculation: CPP/EI max reached (normal Q4 increase)
-  // Bonus: One-time bonus payment
-  // Partial Pay: Incomplete pay period
-  // Rate Change: For investments/dividends
-  // Detected: System auto-detected change >5%
-  // Other: Miscellaneous
-  changeReason  String    @map("ChangeReason")
-
-  notes         String?   @map("Notes")
-  createdAt     DateTime  @default(now()) @map("CreatedAt")
-
-  @@unique([incomeSourceId, effectiveDate])
-  @@map("IncomeChanges")
+  @@unique([incomeId, effectiveDate])
+  @@map("payslip")
 }

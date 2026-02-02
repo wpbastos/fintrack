@@ -1,73 +1,64 @@
 {
   "statement": {
-    "accountId": 1,
+    "account": {
+      "accountName": "TD Chequing",
+      "accountNumber": "5001234567",
+      "institutionName": "TD Bank",
+      "accountType": "Chequing",
+      "currency": "CAD"
+    },
     "periodStart": "2024-01-01",
     "periodEnd": "2024-01-31",
-    "openingBalance": 5000.00,
-    "closingBalance": 7235.47,
+    "openingBalance": 4500.00,
+    "closingBalance": 6497.76,
     "sourceFile": "2024-01_TD_Chequing.pdf",
     "sourceType": "Statement"
   },
   "transactions": [
-    {
-      "date": "2024-01-03",
-      "description": "AMAZON.CA*1A2B3C VANCOUVER BC",
-      "amount": -45.99
-    },
-    {
-      "date": "2024-01-05",
-      "description": "COSTCO WHOLESALE #123 BURNABY BC",
-      "amount": -234.56
-    },
-    {
-      "date": "2024-01-10",
-      "description": "ACME CORP PAYROLL DIRECT DEP",
-      "amount": 2500.00
-    },
-    {
-      "date": "2024-01-12",
-      "description": "NETFLIX.COM",
-      "amount": -22.99
-    },
-    {
-      "date": "2024-01-15",
-      "description": "SHELL OIL 0012345 VANCOUVER BC",
-      "amount": -78.50
-    },
-    {
-      "date": "2024-01-18",
-      "description": "TRANSFER TO SAVINGS",
-      "amount": -500.00
-    },
-    {
-      "date": "2024-01-20",
-      "description": "STARBUCKS #12345 VANCOUVER",
-      "amount": -8.75
-    },
-    {
-      "date": "2024-01-22",
-      "description": "UBER* TRIP HELP.UBER.COM",
-      "amount": -32.40
-    },
-    {
-      "date": "2024-01-25",
-      "description": "ACME CORP PAYROLL DIRECT DEP",
-      "amount": 2500.00
-    },
-    {
-      "date": "2024-01-28",
-      "description": "BC HYDRO PAYMENT",
-      "amount": -156.78
-    },
-    {
-      "date": "2024-01-30",
-      "description": "GROCERY STORE #456 VANCOUVER",
-      "amount": -89.56
-    },
-    {
-      "date": "2024-01-31",
-      "description": "RENT PAYMENT - E-TRANSFER OUT",
-      "amount": -1595.00
-    }
+    { "date": "2024-01-02", "description": "SHOPIFY INC PAYROLL DIRECT DEP", "amount": 3250.00 },
+    { "date": "2024-01-02", "description": "LULULEMON ATHLETICA PAYROLL", "amount": 2180.00 },
+    { "date": "2024-01-03", "description": "AMAZON.CA*1A2B3C VANCOUVER BC", "amount": -67.89 },
+    { "date": "2024-01-03", "description": "DOLLARAMA #567 BURNABY", "amount": -23.45 },
+    { "date": "2024-01-04", "description": "COSTCO WHOLESALE #123 BURNABY BC", "amount": -345.67 },
+    { "date": "2024-01-04", "description": "COSTCO GAS 0123 BURNABY BC", "amount": -68.90 },
+    { "date": "2024-01-05", "description": "STARBUCKS #12345 VANCOUVER", "amount": -8.45 },
+    { "date": "2024-01-05", "description": "TIM HORTONS #5678 VANCOUVER BC", "amount": -6.25 },
+    { "date": "2024-01-06", "description": "SAVE ON FOODS #234 VANCOUVER", "amount": -156.78 },
+    { "date": "2024-01-07", "description": "UBER* TRIP HELP.UBER.COM", "amount": -24.35 },
+    { "date": "2024-01-08", "description": "NETFLIX.COM", "amount": -22.99 },
+    { "date": "2024-01-08", "description": "SPOTIFY P1234567 STOCKHOLM", "amount": -11.99 },
+    { "date": "2024-01-08", "description": "DISNEY PLUS", "amount": -14.99 },
+    { "date": "2024-01-09", "description": "MCDONALDS #1234 VANCOUVER BC", "amount": -18.45 },
+    { "date": "2024-01-10", "description": "SHELL OIL 0012345 VANCOUVER BC", "amount": -78.50 },
+    { "date": "2024-01-10", "description": "7-ELEVEN #5678 VANCOUVER", "amount": -12.34 },
+    { "date": "2024-01-11", "description": "LONDON DRUGS #456 VANCOUVER", "amount": -45.23 },
+    { "date": "2024-01-12", "description": "UBER EATS HELP.UBER.COM", "amount": -38.45 },
+    { "date": "2024-01-13", "description": "REAL CANADIAN SUPERSTORE BURNABY", "amount": -189.34 },
+    { "date": "2024-01-14", "description": "CINEPLEX SCOTIABANK VANCOUVER", "amount": -45.00 },
+    { "date": "2024-01-15", "description": "BC HYDRO PAYMENT", "amount": -156.78 },
+    { "date": "2024-01-15", "description": "TELUS MOBILITY", "amount": -145.00 },
+    { "date": "2024-01-15", "description": "FORTISBC NATURAL GAS", "amount": -89.45 },
+    { "date": "2024-01-15", "description": "RENT E-TRANSFER TO LANDLORD", "amount": -2200.00 },
+    { "date": "2024-01-16", "description": "SHOPIFY INC PAYROLL DIRECT DEP", "amount": 3250.00 },
+    { "date": "2024-01-16", "description": "LULULEMON ATHLETICA PAYROLL", "amount": 2180.00 },
+    { "date": "2024-01-17", "description": "WINNERS #567 VANCOUVER", "amount": -67.89 },
+    { "date": "2024-01-17", "description": "HOMESENSE #234 BURNABY", "amount": -89.99 },
+    { "date": "2024-01-18", "description": "SHOPPERS DRUG MART #890 VANCOUVER", "amount": -34.56 },
+    { "date": "2024-01-19", "description": "A&W #567 BURNABY BC", "amount": -15.99 },
+    { "date": "2024-01-20", "description": "TRANSFER TO SAVINGS", "amount": -1000.00 },
+    { "date": "2024-01-20", "description": "TRANSFER TO TFSA", "amount": -500.00 },
+    { "date": "2024-01-21", "description": "PETROCAN 0045678 BURNABY BC", "amount": -72.30 },
+    { "date": "2024-01-22", "description": "CANADIAN TIRE #890 BURNABY", "amount": -134.56 },
+    { "date": "2024-01-23", "description": "COBS BREAD #234 VANCOUVER", "amount": -18.90 },
+    { "date": "2024-01-24", "description": "SKIP THE DISHES CALGARY", "amount": -42.35 },
+    { "date": "2024-01-25", "description": "OLD NAVY #567 BURNABY", "amount": -78.90 },
+    { "date": "2024-01-26", "description": "SPORT CHEK #890 VANCOUVER", "amount": -156.78 },
+    { "date": "2024-01-27", "description": "SAFEWAY #1234 VANCOUVER", "amount": -123.45 },
+    { "date": "2024-01-28", "description": "POPEYES #456 BURNABY BC", "amount": -22.99 },
+    { "date": "2024-01-29", "description": "IKEA COQUITLAM BC", "amount": -234.56 },
+    { "date": "2024-01-30", "description": "TD VISA PAYMENT - THANK YOU", "amount": -2500.00 },
+    { "date": "2024-01-31", "description": "TD MONTHLY ACCOUNT FEE", "amount": -16.95 },
+    { "date": "2024-01-31", "description": "TD FEE REBATE", "amount": 16.95 },
+    { "date": "2024-01-31", "description": "TD SAVINGS INTEREST", "amount": 1.23 }
   ]
 }

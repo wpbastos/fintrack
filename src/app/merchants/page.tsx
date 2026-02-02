@@ -5,10 +5,14 @@ export const dynamic = "force-dynamic";
 
 async function getMerchants() {
   return db.merchant.findMany({
-    orderBy: { merchantName: "asc" },
+    orderBy: { name: "asc" },
     include: {
       patterns: true,
-      defaultCategory: true,
+      category: {
+        include: {
+          group: { select: { color: true } },
+        },
+      },
       _count: {
         select: { transactions: true },
       },

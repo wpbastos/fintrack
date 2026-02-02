@@ -11,15 +11,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { IncomeSourceDialog, IncomeSourceEditButton } from "./income-source-dialog";
+import { IncomeDialog, IncomeEditButton } from "./income-source-dialog";
 import { IncomeHistoryDialog } from "./income-history-dialog";
-import { toggleIncomeSourceStatus, deleteIncomeSource } from "./actions";
+import { toggleIncomeStatus, deleteIncome } from "./actions";
 import { toast } from "sonner";
 import { Trash2, X } from "lucide-react";
 
+interface CategoryGroup {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
+  group: CategoryGroup | null;
 }
 
 interface Person {
@@ -29,7 +37,18 @@ interface Person {
 
 interface Account {
   id: number;
-  accountName: string;
+  name: string;
+}
+
+interface Position {
+  id: number;
+  title: string;
+  department: string | null;
+  employer: {
+    id: number;
+    name: string;
+    website: string | null;
+  };
 }
 
 interface Pattern {
@@ -39,22 +58,23 @@ interface Pattern {
   notes: string | null;
 }
 
-interface IncomeSource {
+interface Income {
   id: number;
-  sourceName: string;
+  name: string;
+  type: string;
+  positionId: number | null;
+  position: Position | null;
   personId: number | null;
   person: Person | null;
-  defaultCategoryId: number | null;
-  defaultCategory: Category | null;
+  categoryId: number | null;
+  category: Category | null;
   depositAccountId: number | null;
   depositAccount: Account | null;
   payFrequency: string | null;
-  position: string | null;
-  industry: string | null;
-  location: string | null;
-  website: string | null;
   startDate: Date | null;
   endDate: Date | null;
+  initialGross: number | null;
+  initialNet: number | null;
   currentGross: number | null;
   currentNet: number | null;
   isActive: boolean;
@@ -66,7 +86,7 @@ interface IncomeSource {
 }
 
 interface IncomePanelProps {
-  incomeSources: IncomeSource[];
+  incomeSources: Income[];
 }
 
 // Pay frequency multipliers for annual calculation
@@ -99,44 +119,45 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
     ? incomeSources.filter((s) => {
         const query = search.toLowerCase();
         return (
-          s.sourceName.toLowerCase().includes(query) ||
-          (s.position?.toLowerCase().includes(query) ?? false) ||
-          (s.industry?.toLowerCase().includes(query) ?? false) ||
+          s.name.toLowerCase().includes(query) ||
+          (s.position?.title.toLowerCase().includes(query) ?? false) ||
+          (s.position?.department?.toLowerCase().includes(query) ?? false) ||
+          (s.position?.employer.name.toLowerCase().includes(query) ?? false) ||
           s.person?.name.toLowerCase().includes(query) ||
-          (s.depositAccount?.accountName.toLowerCase().includes(query) ?? false) ||
-          (s.defaultCategory?.categoryName.toLowerCase().includes(query) ?? false) ||
+          (s.depositAccount?.name.toLowerCase().includes(query) ?? false) ||
+          (s.category?.name.toLowerCase().includes(query) ?? false) ||
           s.patterns.some((p) => p.pattern.toLowerCase().includes(query))
         );
       })
     : incomeSources;
 
-  // Group sources by person
-  const sourcesByPerson = filteredSources.reduce((acc, source) => {
-    const personKey = source.person?.id ?? 0;
-    const personName = source.person?.name ?? "Other Income";
+  // Group sources by category group
+  const sourcesByCategoryGroup = filteredSources.reduce((acc, source) => {
+    const groupKey = source.category?.group?.id ?? 0;
+    const groupName = source.category?.group?.name ?? "Uncategorized";
 
-    if (!acc[personKey]) {
-      acc[personKey] = {
-        personId: personKey,
-        personName,
+    if (!acc[groupKey]) {
+      acc[groupKey] = {
+        groupId: groupKey,
+        groupName,
         sources: [],
       };
     }
 
-    acc[personKey].sources.push(source);
+    acc[groupKey].sources.push(source);
     return acc;
-  }, {} as Record<number, { personId: number; personName: string; sources: IncomeSource[] }>);
+  }, {} as Record<number, { groupId: number; groupName: string; sources: Income[] }>);
 
-  // Sort: named persons first (by name), "Other Income" last
-  const sortedGroups = Object.values(sourcesByPerson).sort((a, b) => {
-    if (a.personId === 0) return 1;
-    if (b.personId === 0) return -1;
-    return a.personName.localeCompare(b.personName);
+  // Sort: named groups first (by name), "Uncategorized" last
+  const sortedGroups = Object.values(sourcesByCategoryGroup).sort((a, b) => {
+    if (a.groupId === 0) return 1;
+    if (b.groupId === 0) return -1;
+    return a.groupName.localeCompare(b.groupName);
   });
 
-  const handleToggleStatus = async (source: IncomeSource) => {
+  const handleToggleStatus = async (source: Income) => {
     setPendingIds((prev) => new Set(prev).add(source.id));
-    await toggleIncomeSourceStatus(source.id, !source.isActive);
+    await toggleIncomeStatus(source.id, !source.isActive);
     setPendingIds((prev) => {
       const next = new Set(prev);
       next.delete(source.id);
@@ -145,13 +166,13 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
     toast.success(`Income source ${source.isActive ? "deactivated" : "activated"}`);
   };
 
-  const handleDelete = async (source: IncomeSource) => {
-    if (!confirm(`Are you sure you want to delete "${source.sourceName}"?`)) {
+  const handleDelete = async (source: Income) => {
+    if (!confirm(`Are you sure you want to delete "${source.name}"?`)) {
       return;
     }
 
     setPendingIds((prev) => new Set(prev).add(source.id));
-    const result = await deleteIncomeSource(source.id);
+    const result = await deleteIncome(source.id);
     setPendingIds((prev) => {
       const next = new Set(prev);
       next.delete(source.id);
@@ -186,7 +207,7 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
     return (net * multiplier) / 12;
   };
 
-  const calculateGroupMonthly = (sources: IncomeSource[]): number => {
+  const calculateGroupMonthly = (sources: Income[]): number => {
     return sources.reduce((sum, s) => sum + calculateMonthly(s.currentNet, s.payFrequency), 0);
   };
 
@@ -210,7 +231,7 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
             </button>
           )}
         </div>
-        <IncomeSourceDialog />
+        <IncomeDialog />
       </div>
 
       {filteredSources.length === 0 ? (
@@ -227,11 +248,11 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
             const monthlyTotal = calculateGroupMonthly(group.sources);
 
             return (
-              <Card key={group.personId}>
+              <Card key={group.groupId}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-lg">{group.personName}</CardTitle>
+                      <CardTitle className="text-lg">{group.groupName}</CardTitle>
                       <CardDescription>
                         {formatCurrency(monthlyTotal)}/mo · {group.sources.length} source{group.sources.length !== 1 ? "s" : ""}
                       </CardDescription>
@@ -256,7 +277,7 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
                           <TableHead>Frequency</TableHead>
                           <TableHead className="text-right">Net/Pay</TableHead>
                           <TableHead className="text-right">Annual</TableHead>
-                          <TableHead>Account</TableHead>
+                          <TableHead>Category</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                           <TableHead className="p-0"></TableHead>
                         </TableRow>
@@ -269,21 +290,21 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
                             <TableRow key={source.id}>
                               <TableCell>
                                 <div className="flex flex-col">
-                                  {source.website ? (
+                                  {source.position?.employer.website ? (
                                     <a
-                                      href={source.website}
+                                      href={source.position.employer.website}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="font-medium hover:text-violet-600 hover:underline"
                                     >
-                                      {source.sourceName}
+                                      {source.name}
                                     </a>
                                   ) : (
-                                    <span className="font-medium">{source.sourceName}</span>
+                                    <span className="font-medium">{source.name}</span>
                                   )}
                                   {source.position && (
                                     <span className="text-xs text-muted-foreground truncate">
-                                      {source.position}
+                                      {source.position.title} @ {source.position.employer.name}
                                     </span>
                                   )}
                                 </div>
@@ -312,9 +333,19 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
                                 </span>
                               </TableCell>
                               <TableCell>
-                                {source.depositAccount ? (
-                                  <span className="text-sm truncate block">
-                                    {source.depositAccount.accountName}
+                                {source.category ? (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
+                                    style={{
+                                      backgroundColor: `${source.category.color || source.category.group?.color || "#6366f1"}20`,
+                                      color: source.category.color || source.category.group?.color || "#6366f1",
+                                    }}
+                                  >
+                                    <span
+                                      className="w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: source.category.color || source.category.group?.color || "#6366f1" }}
+                                    />
+                                    {source.category.name}
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">—</span>
@@ -336,12 +367,12 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
                               <TableCell className="p-0">
                                 <div className="flex items-center justify-center gap-1">
                                   <IncomeHistoryDialog
-                                    incomeSourceId={source.id}
-                                    sourceName={source.sourceName}
+                                    incomeId={source.id}
+                                    name={source.name}
                                     currentGross={source.currentGross}
                                     currentNet={source.currentNet}
                                   />
-                                  <IncomeSourceEditButton incomeSource={source} />
+                                  <IncomeEditButton income={source} />
                                   <button
                                     type="button"
                                     onClick={() => handleDelete(source)}

@@ -22,9 +22,9 @@ export function MerchantsPanel({ merchants }: MerchantsPanelProps) {
     ? merchants.filter((m) => {
         const query = search.toLowerCase();
         return (
-          m.merchantName.toLowerCase().includes(query) ||
-          (m.merchantType?.toLowerCase().includes(query) ?? false) ||
-          (m.defaultCategory?.categoryName.toLowerCase().includes(query) ?? false) ||
+          m.name.toLowerCase().includes(query) ||
+          (m.type?.toLowerCase().includes(query) ?? false) ||
+          (m.category?.name.toLowerCase().includes(query) ?? false) ||
           (m.notes?.toLowerCase().includes(query) ?? false) ||
           m.patterns.some((p) => p.pattern.toLowerCase().includes(query))
         );
@@ -43,7 +43,7 @@ export function MerchantsPanel({ merchants }: MerchantsPanelProps) {
   };
 
   const handleDelete = async (merchant: MerchantWithStatus) => {
-    if (!confirm(`Are you sure you want to delete "${merchant.merchantName}"?`)) {
+    if (!confirm(`Are you sure you want to delete "${merchant.name}"?`)) {
       return;
     }
 

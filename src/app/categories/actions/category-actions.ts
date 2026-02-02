@@ -23,12 +23,12 @@ export async function toggleCategoryStatus(
   const category = await db.category.findUnique({
     where: { id: categoryId },
     include: {
-      parentCategory: {
+      parent: {
         include: {
-          childCategories: true,
+          children: true,
         },
       },
-      childCategories: true,
+      children: true,
     },
   });
 
@@ -42,30 +42,30 @@ export async function toggleCategoryStatus(
   });
 
   if (isActive) {
-    if (category.parentCategoryId) {
+    if (category.parentId) {
       await db.category.update({
-        where: { id: category.parentCategoryId },
+        where: { id: category.parentId },
         data: { isActive: true },
       });
     }
   } else {
-    if (category.parentCategory) {
-      const siblings = category.parentCategory.childCategories;
+    if (category.parent) {
+      const siblings = category.parent.children;
       const allSiblingsInactive = siblings.every(
         (sibling) => sibling.id === categoryId || !sibling.isActive
       );
 
       if (allSiblingsInactive) {
         await db.category.update({
-          where: { id: category.parentCategoryId! },
+          where: { id: category.parentId! },
           data: { isActive: false },
         });
       }
     }
 
-    if (category.childCategories.length > 0) {
+    if (category.children.length > 0) {
       await db.category.updateMany({
-        where: { parentCategoryId: categoryId },
+        where: { parentId: categoryId },
         data: { isActive: false },
       });
     }
@@ -76,24 +76,26 @@ export async function toggleCategoryStatus(
 }
 
 export async function createCategory(data: {
-  categoryName: string;
+  name: string;
   groupId: number;
   necessityLevel: string;
   monthlyBudget?: number;
+  color?: string;
   notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const maxSortOrder = await db.category.aggregate({
-      where: { groupId: data.groupId, parentCategoryId: null },
+      where: { groupId: data.groupId, parentId: null },
       _max: { sortOrder: true },
     });
 
     await db.category.create({
       data: {
-        categoryName: data.categoryName,
+        name: data.name,
         groupId: data.groupId,
         necessityLevel: data.necessityLevel,
         monthlyBudget: data.monthlyBudget ?? null,
+        color: data.color ?? null,
         notes: data.notes ?? null,
         sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
         isActive: true,
@@ -112,21 +114,21 @@ export async function createCategory(data: {
 
 export async function addChildCategory(
   parentId: number,
-  categoryName: string,
+  name: string,
   notes?: string,
   confirmClearBudget?: boolean
 ): Promise<{ success: boolean; error?: string; needsConfirmation?: boolean; parentBudget?: number }> {
   try {
     const parent = await db.category.findUnique({
       where: { id: parentId },
-      include: { childCategories: true },
+      include: { children: true },
     });
 
     if (!parent) {
       return { success: false, error: "Parent category not found" };
     }
 
-    const hasNoBudgetConflict = parent.monthlyBudget === null || parent.childCategories.length > 0;
+    const hasNoBudgetConflict = parent.monthlyBudget === null || parent.children.length > 0;
 
     if (!hasNoBudgetConflict && !confirmClearBudget) {
       return {
@@ -136,16 +138,16 @@ export async function addChildCategory(
       };
     }
 
-    const maxSortOrder = parent.childCategories.reduce(
+    const maxSortOrder = parent.children.reduce(
       (max, child) => Math.max(max, child.sortOrder ?? 0),
       0
     );
 
     await db.category.create({
       data: {
-        categoryName,
+        name,
         groupId: parent.groupId,
-        parentCategoryId: parentId,
+        parentId: parentId,
         necessityLevel: parent.necessityLevel,
         sortOrder: maxSortOrder + 1,
         isActive: true,
@@ -172,17 +174,19 @@ export async function addChildCategory(
 
 export async function updateChildCategory(
   categoryId: number,
-  categoryName: string,
+  name: string,
   necessityLevel: string,
-  notes?: string
+  notes?: string,
+  color?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await db.category.update({
       where: { id: categoryId },
       data: {
-        categoryName,
+        name,
         necessityLevel,
         notes: notes || null,
+        color: color || null,
       },
     });
 
@@ -213,17 +217,19 @@ export async function deleteChildCategory(
 
 export async function updateParentCategory(
   categoryId: number,
-  categoryName: string,
+  name: string,
   necessityLevel: string,
-  notes?: string
+  notes?: string,
+  color?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await db.category.update({
       where: { id: categoryId },
       data: {
-        categoryName,
+        name,
         necessityLevel,
         notes: notes || null,
+        color: color || null,
       },
     });
 
@@ -242,7 +248,7 @@ export async function deleteParentCategory(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await db.category.deleteMany({
-      where: { parentCategoryId: categoryId },
+      where: { parentId: categoryId },
     });
 
     await db.category.delete({

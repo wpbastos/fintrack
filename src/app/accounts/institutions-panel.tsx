@@ -35,8 +35,8 @@ const INSTITUTION_TYPES = ["Bank", "Credit Union", "Brokerage", "Other"];
 
 interface Institution {
   id: number;
-  institutionName: string;
-  institutionType: string;
+  name: string;
+  type: string;
   website: string | null;
   isActive: boolean;
   notes: string | null;
@@ -58,7 +58,7 @@ export function InstitutionsPanel({ institutions }: InstitutionsPanelProps) {
     ? institutions.filter((i) => {
         const query = search.toLowerCase();
         return (
-          i.institutionName.toLowerCase().includes(query) ||
+          i.name.toLowerCase().includes(query) ||
           (i.notes?.toLowerCase().includes(query) ?? false)
         );
       })
@@ -67,7 +67,7 @@ export function InstitutionsPanel({ institutions }: InstitutionsPanelProps) {
   // Group institutions by type
   const groupedInstitutions = INSTITUTION_TYPES.map((type) => ({
     type,
-    institutions: filteredInstitutions.filter((i) => i.institutionType === type),
+    institutions: filteredInstitutions.filter((i) => i.type === type),
   })).filter((group) => group.institutions.length > 0);
 
   const handleToggleStatus = async (institution: Institution) => {
@@ -82,7 +82,7 @@ export function InstitutionsPanel({ institutions }: InstitutionsPanelProps) {
   };
 
   const handleDelete = async (institution: Institution) => {
-    if (!confirm(`Are you sure you want to delete "${institution.institutionName}"?`)) {
+    if (!confirm(`Are you sure you want to delete "${institution.name}"?`)) {
       return;
     }
 
@@ -171,10 +171,10 @@ export function InstitutionsPanel({ institutions }: InstitutionsPanelProps) {
                                   rel="noopener noreferrer"
                                   className="font-medium text-violet-600 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300 hover:underline"
                                 >
-                                  {institution.institutionName}
+                                  {institution.name}
                                 </a>
                               ) : (
-                                <span className="font-medium">{institution.institutionName}</span>
+                                <span className="font-medium">{institution.name}</span>
                               )}
                               {institution.notes && (
                                 <span className="text-xs text-muted-foreground truncate max-w-[300px]">
@@ -318,8 +318,8 @@ function InstitutionForm({
   onCancel: () => void;
 }) {
   const [isPending, setIsPending] = useState(false);
-  const [institutionName, setInstitutionName] = useState(institution?.institutionName || "");
-  const [institutionType, setInstitutionType] = useState(institution?.institutionType || "Bank");
+  const [institutionName, setInstitutionName] = useState(institution?.name || "");
+  const [institutionType, setInstitutionType] = useState(institution?.type || "Bank");
   const [website, setWebsite] = useState(institution?.website || "");
   const [notes, setNotes] = useState(institution?.notes || "");
 
@@ -335,14 +335,14 @@ function InstitutionForm({
 
     const result = institution
       ? await updateInstitution(institution.id, {
-          institutionName: institutionName.trim(),
-          institutionType,
+          name: institutionName.trim(),
+          type: institutionType,
           website: website.trim() || null,
           notes: notes.trim() || null,
         })
       : await createInstitution({
-          institutionName: institutionName.trim(),
-          institutionType,
+          name: institutionName.trim(),
+          type: institutionType,
           website: website.trim() || undefined,
           notes: notes.trim() || undefined,
         });

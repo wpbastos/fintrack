@@ -1,21 +1,29 @@
 import { db } from "@/lib/db";
 import { formatDateISO } from "@/lib/date-resolver";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ResolveButton } from "./resolve-button";
 import { StagingTable } from "./staging-table";
 
 async function getStagingTransactions() {
   return db.stagingTransaction.findMany({
     orderBy: [
-      { importLogId: "asc" },
+      { importId: "asc" },
       { resolvedDate: "asc" },
       { id: "asc" },
     ],
     take: 100,
     include: {
-      importLog: true,
-      resolvedMerchant: true,
-      resolvedCategory: true,
+      import: {
+        include: {
+          account: true,
+        },
+      },
+      merchant: true,
+      income: true,
+      category: {
+        include: {
+          group: { select: { color: true } },
+        },
+      },
     },
   });
 }
@@ -26,25 +34,37 @@ interface TransactionWithBalance {
   rawDescription: string | null;
   rawAmount: number | null;
   resolvedDate: Date | null;
-  resolvedMerchant: { merchantName: string } | null;
-  resolvedCategory: { categoryName: string } | null;
+  merchant: { name: string } | null;
+  income: { name: string } | null;
+  category: { name: string; color: string | null; group: { color: string | null } | null } | null;
   status: string;
+  notes: string | null;
   balance: number | null;
   isLastOfDay: boolean;
-  importLogId: number | null;
+  importId: number | null;
   isFirstOfBatch: boolean;
 }
 
 interface ImportBatchInfo {
-  importLogId: number;
+  importId: number;
   fileName: string;
   sourceType: string;
   createdAt: Date;
+  periodStart: Date | null;
+  periodEnd: Date | null;
   openingBalance: number;
   closingBalance: number;
   calculatedClosing: number;
   isBalanced: boolean;
   transactionCount: number;
+  addedCount: number;
+  matchedCount: number;
+  unknownCount: number;
+  accountName: string | null;
+  content: string | null;
+  aiStatus: string;
+  aiStartedAt: Date | null;
+  aiResult: string | null;
 }
 
 interface BalanceInfo {
@@ -62,7 +82,7 @@ function calculateBalances(
   }
 
   // Get opening balance from first transaction's import log
-  const openingBalance = transactions[0]?.importLog?.openingBalance ?? 0;
+  const openingBalance = transactions[0]?.import?.openingBalance ?? 0;
 
   // Collect batch info and calculate sum of transactions per batch
   const batchMap = new Map<number, Omit<ImportBatchInfo, 'calculatedClosing' | 'isBalanced'>>();
@@ -70,46 +90,56 @@ function calculateBalances(
   const batchCounts = new Map<number, number>();
 
   transactions.forEach((txn) => {
-    if (txn.importLogId && txn.importLog) {
-      if (!batchMap.has(txn.importLogId)) {
-        batchMap.set(txn.importLogId, {
-          importLogId: txn.importLogId,
-          fileName: txn.importLog.fileName,
-          sourceType: txn.importLog.sourceType,
-          createdAt: txn.importLog.createdAt,
-          openingBalance: txn.importLog.openingBalance ?? 0,
-          closingBalance: txn.importLog.closingBalance ?? 0,
+    if (txn.importId && txn.import) {
+      if (!batchMap.has(txn.importId)) {
+        batchMap.set(txn.importId, {
+          importId: txn.importId,
+          fileName: txn.import.fileName,
+          sourceType: txn.import.sourceType,
+          createdAt: txn.import.createdAt,
+          periodStart: txn.import.periodStart,
+          periodEnd: txn.import.periodEnd,
+          openingBalance: txn.import.openingBalance ?? 0,
+          closingBalance: txn.import.closingBalance ?? 0,
           transactionCount: 0,
+          addedCount: txn.import.addedCount,
+          matchedCount: txn.import.matchedCount,
+          unknownCount: txn.import.unknownCount,
+          accountName: txn.import.account?.name ?? null,
+          content: txn.import.content,
+          aiStatus: txn.import.aiStatus,
+          aiStartedAt: txn.import.aiStartedAt,
+          aiResult: txn.import.aiResult,
         });
-        batchSums.set(txn.importLogId, 0);
-        batchCounts.set(txn.importLogId, 0);
+        batchSums.set(txn.importId, 0);
+        batchCounts.set(txn.importId, 0);
       }
-      batchSums.set(txn.importLogId, (batchSums.get(txn.importLogId) ?? 0) + (txn.rawAmount ?? 0));
-      batchCounts.set(txn.importLogId, (batchCounts.get(txn.importLogId) ?? 0) + 1);
+      batchSums.set(txn.importId, (batchSums.get(txn.importId) ?? 0) + (txn.rawAmount ?? 0));
+      batchCounts.set(txn.importId, (batchCounts.get(txn.importId) ?? 0) + 1);
     }
   });
 
   // Build final batch info with calculated closing and validation
   const batches: ImportBatchInfo[] = Array.from(batchMap.values()).map((batch) => {
-    const sum = batchSums.get(batch.importLogId) ?? 0;
+    const sum = batchSums.get(batch.importId) ?? 0;
     const calculatedClosing = batch.openingBalance + sum;
     const isBalanced = Math.abs(calculatedClosing - batch.closingBalance) < 0.01;
     return {
       ...batch,
       calculatedClosing,
       isBalanced,
-      transactionCount: batchCounts.get(batch.importLogId) ?? 0,
+      transactionCount: batchCounts.get(batch.importId) ?? 0,
     };
   });
 
   // Group transactions by date to find last of each day (within each batch)
   const batchDateGroups = new Map<number, Map<string, number[]>>();
   transactions.forEach((txn, idx) => {
-    if (!txn.importLogId) return;
-    if (!batchDateGroups.has(txn.importLogId)) {
-      batchDateGroups.set(txn.importLogId, new Map());
+    if (!txn.importId) return;
+    if (!batchDateGroups.has(txn.importId)) {
+      batchDateGroups.set(txn.importId, new Map());
     }
-    const dateGroups = batchDateGroups.get(txn.importLogId)!;
+    const dateGroups = batchDateGroups.get(txn.importId)!;
     const dateKey = txn.resolvedDate ? formatDateISO(txn.resolvedDate) : txn.rawDate ?? "unknown";
     if (!dateGroups.has(dateKey)) {
       dateGroups.set(dateKey, []);
@@ -119,10 +149,10 @@ function calculateBalances(
 
   // Calculate running balance per batch
   const batchRunningBalances = new Map<number, number>();
-  let lastImportLogId: number | null = null;
+  let lastImportId: number | null = null;
 
   const result = transactions.map((txn, idx) => {
-    const batchId = txn.importLogId;
+    const batchId = txn.importId;
     if (batchId) {
       if (!batchRunningBalances.has(batchId)) {
         const batchInfo = batchMap.get(batchId);
@@ -138,8 +168,8 @@ function calculateBalances(
     const dayIndices = dateGroups?.get(dateKey) ?? [];
     const isLastOfDay = dayIndices[dayIndices.length - 1] === idx;
 
-    const isFirstOfBatch = txn.importLogId !== lastImportLogId;
-    lastImportLogId = txn.importLogId;
+    const isFirstOfBatch = txn.importId !== lastImportId;
+    lastImportId = txn.importId;
 
     return {
       id: txn.id,
@@ -147,19 +177,21 @@ function calculateBalances(
       rawDescription: txn.rawDescription,
       rawAmount: txn.rawAmount,
       resolvedDate: txn.resolvedDate,
-      resolvedMerchant: txn.resolvedMerchant,
-      resolvedCategory: txn.resolvedCategory,
+      merchant: txn.merchant,
+      income: txn.income,
+      category: txn.category,
       status: txn.status,
+      notes: txn.notes,
       balance: isLastOfDay ? runningBalance : null,
       isLastOfDay,
-      importLogId: txn.importLogId,
+      importId: txn.importId,
       isFirstOfBatch,
     };
   });
 
   return {
     openingBalance,
-    closingBalance: batchRunningBalances.get(transactions[transactions.length - 1]?.importLogId ?? 0) ?? 0,
+    closingBalance: batchRunningBalances.get(transactions[transactions.length - 1]?.importId ?? 0) ?? 0,
     transactions: result,
     batches,
   };
@@ -179,15 +211,12 @@ export default async function StagingPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle>Pending Transactions</CardTitle>
-            <CardDescription>
-              {transactions.length} transactions in staging
-              {batches.length > 1 && ` from ${batches.length} statements`}
-            </CardDescription>
-          </div>
-          <ResolveButton />
+        <CardHeader>
+          <CardTitle>Pending Transactions</CardTitle>
+          <CardDescription>
+            {transactions.length} transactions in staging
+            {batches.length > 1 && ` from ${batches.length} statements`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (

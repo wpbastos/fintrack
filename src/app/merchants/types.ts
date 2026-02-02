@@ -1,12 +1,16 @@
 export interface Category {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
+  group: { color: string | null } | null;
 }
 
 export interface CategoryWithGroup {
   id: number;
-  categoryName: string;
+  name: string;
+  color: string | null;
   groupName: string;
+  groupColor: string | null;
 }
 
 export interface Pattern {
@@ -23,10 +27,10 @@ export interface NewPattern {
 
 export interface Merchant {
   id: number;
-  merchantName: string;
-  merchantType: string | null;
-  defaultCategoryId: number | null;
-  defaultCategory: Category | null;
+  name: string;
+  type: string | null;
+  categoryId: number | null;
+  category: Category | null;
   website: string | null;
   notes: string | null;
   hasAlternative: boolean;

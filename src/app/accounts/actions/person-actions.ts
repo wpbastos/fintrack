@@ -69,7 +69,7 @@ export async function deletePerson(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const accountCount = await db.account.count({
-      where: { primaryHolderId: personId },
+      where: { ownerId: personId },
     });
 
     if (accountCount > 0) {

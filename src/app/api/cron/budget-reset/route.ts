@@ -72,8 +72,8 @@ export async function POST(request: Request) {
         monthlyBudget: { not: null },
         // Only top-level categories or categories without children
         OR: [
-          { parentCategoryId: null, childCategories: { none: {} } },
-          { parentCategoryId: { not: null } },
+          { parentId: null, children: { none: {} } },
+          { parentId: { not: null } },
         ],
       },
       include: {

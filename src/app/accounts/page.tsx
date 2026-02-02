@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 async function getInstitutions() {
   return db.institution.findMany({
-    orderBy: { institutionName: "asc" },
+    orderBy: { name: "asc" },
     include: {
       _count: {
         select: { accounts: true },
@@ -30,10 +30,10 @@ async function getPersons() {
 
 async function getAccounts() {
   return db.account.findMany({
-    orderBy: { accountName: "asc" },
+    orderBy: { name: "asc" },
     include: {
       institution: true,
-      primaryHolder: true,
+      owner: true,
     },
   });
 }
