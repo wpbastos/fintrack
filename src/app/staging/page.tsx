@@ -10,19 +10,73 @@ async function getStagingTransactions() {
       { resolvedDate: "asc" },
       { id: "asc" },
     ],
-    take: 100,
     include: {
       import: {
         include: {
-          account: true,
+          account: {
+            include: {
+              institution: true,
+            },
+          },
         },
       },
       merchant: true,
       income: true,
       category: {
         include: {
-          group: { select: { color: true } },
+          group: { select: { name: true, color: true } },
         },
+      },
+    },
+  });
+}
+
+async function getFinalizedImports() {
+  return db.import.findMany({
+    where: { status: "finalized" },
+    orderBy: { periodEnd: "asc" },
+    include: {
+      account: {
+        include: {
+          institution: true,
+        },
+      },
+    },
+  });
+}
+
+async function getFinalizedTransactions() {
+  return db.transaction.findMany({
+    where: {
+      import: { status: "finalized" },
+    },
+    orderBy: [
+      { importId: "asc" },
+      { date: "asc" },
+      { id: "asc" },
+    ],
+    include: {
+      merchant: true,
+      income: true,
+      category: {
+        include: {
+          group: { select: { name: true, color: true } },
+        },
+      },
+    },
+  });
+}
+
+async function getAccounts() {
+  return db.account.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      institution: {
+        select: { name: true },
       },
     },
   });
@@ -36,7 +90,7 @@ interface TransactionWithBalance {
   resolvedDate: Date | null;
   merchant: { name: string } | null;
   income: { name: string } | null;
-  category: { name: string; color: string | null; group: { color: string | null } | null } | null;
+  category: { name: string; color: string | null; group: { name: string; color: string | null } | null } | null;
   status: string;
   notes: string | null;
   balance: number | null;
@@ -60,11 +114,14 @@ interface ImportBatchInfo {
   addedCount: number;
   matchedCount: number;
   unknownCount: number;
+  accountId: number | null;
   accountName: string | null;
+  institutionName: string | null;
   content: string | null;
   aiStatus: string;
   aiStartedAt: Date | null;
   aiResult: string | null;
+  isFinalized: boolean;
 }
 
 interface BalanceInfo {
@@ -75,17 +132,14 @@ interface BalanceInfo {
 }
 
 function calculateBalances(
-  transactions: Awaited<ReturnType<typeof getStagingTransactions>>
+  transactions: Awaited<ReturnType<typeof getStagingTransactions>>,
+  finalizedImports: Awaited<ReturnType<typeof getFinalizedImports>>
 ): BalanceInfo {
-  if (transactions.length === 0) {
-    return { openingBalance: 0, closingBalance: 0, transactions: [], batches: [] };
-  }
-
   // Get opening balance from first transaction's import log
   const openingBalance = transactions[0]?.import?.openingBalance ?? 0;
 
   // Collect batch info and calculate sum of transactions per batch
-  const batchMap = new Map<number, Omit<ImportBatchInfo, 'calculatedClosing' | 'isBalanced'>>();
+  const batchMap = new Map<number, Omit<ImportBatchInfo, 'calculatedClosing' | 'isBalanced' | 'isFinalized'>>();
   const batchSums = new Map<number, number>();
   const batchCounts = new Map<number, number>();
 
@@ -105,7 +159,9 @@ function calculateBalances(
           addedCount: txn.import.addedCount,
           matchedCount: txn.import.matchedCount,
           unknownCount: txn.import.unknownCount,
+          accountId: txn.import.accountId,
           accountName: txn.import.account?.name ?? null,
+          institutionName: txn.import.account?.institution?.name ?? null,
           content: txn.import.content,
           aiStatus: txn.import.aiStatus,
           aiStartedAt: txn.import.aiStartedAt,
@@ -120,17 +176,57 @@ function calculateBalances(
   });
 
   // Build final batch info with calculated closing and validation
-  const batches: ImportBatchInfo[] = Array.from(batchMap.values()).map((batch) => {
-    const sum = batchSums.get(batch.importId) ?? 0;
-    const calculatedClosing = batch.openingBalance + sum;
-    const isBalanced = Math.abs(calculatedClosing - batch.closingBalance) < 0.01;
-    return {
-      ...batch,
-      calculatedClosing,
-      isBalanced,
-      transactionCount: batchCounts.get(batch.importId) ?? 0,
-    };
-  });
+  const stagingBatches: ImportBatchInfo[] = Array.from(batchMap.values())
+    .map((batch) => {
+      const sum = batchSums.get(batch.importId) ?? 0;
+      const calculatedClosing = batch.openingBalance + sum;
+      const isBalanced = Math.abs(calculatedClosing - batch.closingBalance) < 0.01;
+      return {
+        ...batch,
+        calculatedClosing,
+        isBalanced,
+        transactionCount: batchCounts.get(batch.importId) ?? 0,
+        isFinalized: false,
+      };
+    });
+
+  // Add finalized imports (not in staging anymore)
+  const stagingImportIds = new Set(stagingBatches.map(b => b.importId));
+  const finalizedBatches: ImportBatchInfo[] = finalizedImports
+    .filter(imp => !stagingImportIds.has(imp.id))
+    .map(imp => ({
+      importId: imp.id,
+      fileName: imp.fileName,
+      sourceType: imp.sourceType,
+      createdAt: imp.createdAt,
+      periodStart: imp.periodStart,
+      periodEnd: imp.periodEnd,
+      openingBalance: imp.openingBalance ?? 0,
+      closingBalance: imp.closingBalance ?? 0,
+      calculatedClosing: imp.closingBalance ?? 0,
+      isBalanced: true,
+      transactionCount: imp.transactionCount,
+      addedCount: imp.addedCount,
+      matchedCount: imp.transactionCount, // All were matched when imported
+      unknownCount: 0, // None are unknown after import
+      accountId: imp.accountId,
+      accountName: imp.account?.name ?? null,
+      institutionName: imp.account?.institution?.name ?? null,
+      content: imp.content,
+      aiStatus: imp.aiStatus,
+      aiStartedAt: imp.aiStartedAt,
+      aiResult: imp.aiResult,
+      isFinalized: true,
+    }));
+
+  // Combine and sort all batches by closing date (periodEnd), oldest first
+  const batches = [...stagingBatches, ...finalizedBatches]
+    .sort((a, b) => {
+      if (!a.periodEnd && !b.periodEnd) return 0;
+      if (!a.periodEnd) return 1; // null dates go to the end
+      if (!b.periodEnd) return -1;
+      return a.periodEnd.getTime() - b.periodEnd.getTime();
+    });
 
   // Group transactions by date to find last of each day (within each batch)
   const batchDateGroups = new Map<number, Map<string, number[]>>();
@@ -198,8 +294,72 @@ function calculateBalances(
 }
 
 export default async function StagingPage() {
-  const rawTransactions = await getStagingTransactions();
-  const { transactions, batches } = calculateBalances(rawTransactions);
+  const [rawTransactions, finalizedImports, finalizedTransactions, accounts] = await Promise.all([
+    getStagingTransactions(),
+    getFinalizedImports(),
+    getFinalizedTransactions(),
+    getAccounts(),
+  ]);
+  const { transactions, batches } = calculateBalances(rawTransactions, finalizedImports);
+
+  // Transform finalized transactions with running balance calculation
+  // Group by importId first
+  const importedByBatchMap = new Map<number, typeof finalizedTransactions>();
+  finalizedTransactions.forEach((txn) => {
+    if (txn.importId) {
+      if (!importedByBatchMap.has(txn.importId)) {
+        importedByBatchMap.set(txn.importId, []);
+      }
+      importedByBatchMap.get(txn.importId)!.push(txn);
+    }
+  });
+
+  // Calculate balances per batch
+  const importedTransactions: TransactionWithBalance[] = [];
+
+  for (const [importId, txns] of importedByBatchMap) {
+    // Find the batch info to get opening balance
+    const batchInfo = batches.find(b => b.importId === importId);
+    const openingBalance = batchInfo?.openingBalance ?? 0;
+
+    // Group by date to find last of each day
+    const dateGroups = new Map<string, number[]>();
+    txns.forEach((txn, idx) => {
+      const dateKey = formatDateISO(txn.date);
+      if (!dateGroups.has(dateKey)) {
+        dateGroups.set(dateKey, []);
+      }
+      dateGroups.get(dateKey)!.push(idx);
+    });
+
+    // Calculate running balance
+    let runningBalance = openingBalance;
+
+    txns.forEach((txn, idx) => {
+      runningBalance += txn.amount;
+
+      const dateKey = formatDateISO(txn.date);
+      const dayIndices = dateGroups.get(dateKey) ?? [];
+      const isLastOfDay = dayIndices[dayIndices.length - 1] === idx;
+
+      importedTransactions.push({
+        id: txn.id,
+        rawDate: txn.date.toISOString().split("T")[0],
+        rawDescription: txn.description,
+        rawAmount: txn.amount,
+        resolvedDate: txn.date,
+        merchant: txn.merchant,
+        income: txn.income,
+        category: txn.category,
+        status: "imported",
+        notes: null,
+        balance: isLastOfDay ? runningBalance : null,
+        isLastOfDay,
+        importId: txn.importId,
+        isFirstOfBatch: idx === 0,
+      });
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -210,24 +370,22 @@ export default async function StagingPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Transactions</CardTitle>
-          <CardDescription>
-            {transactions.length} transactions in staging
-            {batches.length > 1 && ` from ${batches.length} statements`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+      {batches.length === 0 ? (
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center text-muted-foreground">
               No transactions in staging. Import a statement to get started.
             </div>
-          ) : (
-            <StagingTable transactions={transactions} batches={batches} />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <StagingTable
+          transactions={transactions}
+          batches={batches}
+          importedTransactions={importedTransactions}
+          accounts={accounts}
+        />
+      )}
     </div>
   );
 }

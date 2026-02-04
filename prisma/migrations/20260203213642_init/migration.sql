@@ -13,8 +13,7 @@ CREATE TABLE "import" (
     "matched_count" INTEGER NOT NULL DEFAULT 0,
     "unknown_count" INTEGER NOT NULL DEFAULT 0,
     "content" TEXT,
-    "content_hash" TEXT,
-    "statement_fingerprint" TEXT,
+    "file_hash" TEXT,
     "status" TEXT NOT NULL DEFAULT 'staged',
     "processed_at" DATETIME,
     "ai_status" TEXT NOT NULL DEFAULT 'idle',
@@ -33,6 +32,17 @@ CREATE TABLE "staging_transaction" (
     "raw_description" TEXT,
     "raw_amount" REAL,
     "account_id" INTEGER,
+    "posting_date" DATETIME,
+    "card_number" TEXT,
+    "location" TEXT,
+    "foreign_currency" TEXT,
+    "running_balance" REAL,
+    "transaction_type" TEXT,
+    "reference_number" TEXT,
+    "terminal_id" TEXT,
+    "target_account" TEXT,
+    "source_account" TEXT,
+    "category_hint" TEXT,
     "resolved_date" DATETIME,
     "merchant_id" INTEGER,
     "category_id" INTEGER,
@@ -63,6 +73,16 @@ CREATE TABLE "transaction" (
     "merchant_id" INTEGER,
     "person_id" INTEGER,
     "income_id" INTEGER,
+    "posting_date" DATETIME,
+    "card_number" TEXT,
+    "location" TEXT,
+    "foreign_currency" TEXT,
+    "running_balance" REAL,
+    "transaction_type" TEXT,
+    "reference_number" TEXT,
+    "terminal_id" TEXT,
+    "target_account" TEXT,
+    "source_account" TEXT,
     "import_id" INTEGER,
     "is_predicted" BOOLEAN NOT NULL DEFAULT false,
     "is_recurring" BOOLEAN NOT NULL DEFAULT false,
@@ -289,11 +309,24 @@ CREATE TABLE "payslip" (
     CONSTRAINT "payslip_income_id_fkey" FOREIGN KEY ("income_id") REFERENCES "income" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "import_content_hash_key" ON "import"("content_hash");
+-- CreateTable
+CREATE TABLE "document_schema" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "code" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "document_type" TEXT NOT NULL,
+    "institution_name" TEXT,
+    "version" TEXT NOT NULL DEFAULT '1.0',
+    "sample_data" TEXT NOT NULL,
+    "extraction_notes" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "notes" TEXT,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" DATETIME NOT NULL
+);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "import_statement_fingerprint_key" ON "import"("statement_fingerprint");
+CREATE UNIQUE INDEX "import_file_hash_key" ON "import"("file_hash");
 
 -- CreateIndex
 CREATE INDEX "import_status_idx" ON "import"("status");
@@ -348,3 +381,12 @@ CREATE UNIQUE INDEX "income_pattern_pattern_key" ON "income_pattern"("pattern");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payslip_income_id_effective_date_key" ON "payslip"("income_id", "effective_date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "document_schema_code_key" ON "document_schema"("code");
+
+-- CreateIndex
+CREATE INDEX "document_schema_document_type_idx" ON "document_schema"("document_type");
+
+-- CreateIndex
+CREATE INDEX "document_schema_institution_name_idx" ON "document_schema"("institution_name");

@@ -95,7 +95,6 @@ export async function resolveMerchant(description: string): Promise<{
   for (const patternEntry of sortedPatterns) {
     const normalizedPattern = patternEntry.pattern.toUpperCase();
     if (normalizedDescription.includes(normalizedPattern)) {
-      log.debug("MATCH", `"${description.substring(0, 30)}..." -> ${patternEntry.merchant.name} (pattern: ${patternEntry.pattern})`);
       return {
         merchantId: patternEntry.merchantId,
         merchantName: patternEntry.merchant.name,
@@ -106,7 +105,6 @@ export async function resolveMerchant(description: string): Promise<{
     }
   }
 
-  log.debug("NO_MATCH", `"${description.substring(0, 40)}..." - no pattern matched`);
   return null;
 }
 
@@ -190,8 +188,6 @@ export async function createMerchantWithPattern(
     priority?: number;
   }
 ): Promise<{ merchantId: number; pattern: string }> {
-  log.debug("CREATE", `Creating merchant: ${merchantName}`);
-
   // Check if merchant exists
   let merchant = await db.merchant.findUnique({
     where: { name: merchantName },
@@ -207,14 +203,11 @@ export async function createMerchantWithPattern(
         isActive: true,
       },
     });
-    log.info("CREATE", `Created new merchant: ${merchantName} (ID: ${merchant.id})`);
-  } else {
-    log.debug("CREATE", `Merchant already exists: ${merchantName} (ID: ${merchant.id})`);
+    log.info("CREATE", `Merchant: ${merchantName}`);
   }
 
   // Extract pattern from sample description
   const pattern = extractMerchantPattern(sampleDescription);
-  log.debug("PATTERN", `Extracted pattern: "${pattern}" from "${sampleDescription.substring(0, 40)}..."`);
 
   // Create pattern if doesn't exist
   const existingPattern = await db.merchantPattern.findUnique({
@@ -229,9 +222,7 @@ export async function createMerchantWithPattern(
         priority: options?.priority || 0,
       },
     });
-    log.info("PATTERN", `Created new pattern: "${pattern}" for ${merchantName}`);
-  } else {
-    log.debug("PATTERN", `Pattern already exists: "${pattern}"`);
+    log.info("PATTERN", `"${pattern}" -> ${merchantName}`);
   }
 
   return {

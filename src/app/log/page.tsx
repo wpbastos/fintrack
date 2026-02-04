@@ -24,6 +24,13 @@ async function getImports() {
       aiStatus: true,
       aiStartedAt: true,
       createdAt: true,
+      // PDF extraction metrics
+      extractDurationMs: true,
+      extractCostUsd: true,
+      extractInputTokens: true,
+      extractOutputTokens: true,
+      extractCacheTokens: true,
+      extractPdfSizeBytes: true,
       account: {
         include: {
           institution: true,

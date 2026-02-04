@@ -75,7 +75,6 @@ export async function POST(request: Request) {
       ? { status: { in: ["pending", "unknown", "matched", "suggested"] } }
       : { status: "unknown" };
 
-    log.debug("FETCH", `Fetching ${includeAll ? "all" : "unknown"} transactions${importId ? ` for batch ${importId}` : ""}...`);
     const transactions = await db.stagingTransaction.findMany({
       where: {
         ...statusFilter,
@@ -91,15 +90,12 @@ export async function POST(request: Request) {
         category: { select: { id: true, name: true } },
       },
     });
-    log.debug("FETCH", `Found ${transactions.length} transactions`);
 
     if (transactions.length === 0) {
-      log.info("END", "No transactions to resolve");
       return NextResponse.json({ message: "No transactions to resolve" });
     }
 
     // 2. Fetch existing merchants with patterns
-    log.debug("FETCH", "Fetching merchants...");
     const merchants = await db.merchant.findMany({
       where: { isActive: true },
       include: {
@@ -107,10 +103,8 @@ export async function POST(request: Request) {
         category: true,
       },
     });
-    log.debug("FETCH", `Found ${merchants.length} merchants with ${merchants.reduce((acc, m) => acc + m.patterns.length, 0)} patterns`);
 
     // 3. Fetch existing income sources with patterns
-    log.debug("FETCH", "Fetching income sources...");
     const incomes = await db.income.findMany({
       where: { isActive: true },
       include: {
@@ -123,10 +117,8 @@ export async function POST(request: Request) {
         },
       },
     });
-    log.debug("FETCH", `Found ${incomes.length} income sources with ${incomes.reduce((acc, i) => acc + i.patterns.length, 0)} patterns`);
 
     // 4. Fetch categories with their children (subcategories)
-    log.debug("FETCH", "Fetching categories with subcategories...");
     const categories = await db.category.findMany({
       where: { isActive: true },
       include: {
@@ -137,11 +129,8 @@ export async function POST(request: Request) {
         },
       },
     });
-    log.debug("FETCH", `Found ${categories.length} categories`);
 
     // 5. Build prompt for Claude
-    log.debug("PROMPT", "Building prompt...");
-    // Transform transactions to include current assignment info
     const transactionsForPrompt = transactions.map((t) => ({
       id: t.id,
       rawDescription: t.rawDescription,
@@ -152,15 +141,12 @@ export async function POST(request: Request) {
       currentCategory: t.category?.name ?? null,
     }));
     const prompt = buildResolveTransactionsPrompt(transactionsForPrompt, merchants, incomes, categories, includeAll);
-    log.debug("PROMPT", `Prompt built (${prompt.length} characters)`);
 
     // 6. Call Claude CLI
-    const endClaude = log.time("CLAUDE", "Calling Claude CLI");
+    log.info("AI", `Resolving ${transactions.length} transactions...`);
     const claudeResponse = await callClaudeCLI(prompt);
-    endClaude(`Claude responded with ${claudeResponse.suggestions?.length ?? 0} suggestions`);
 
     if (!claudeResponse.suggestions || claudeResponse.suggestions.length === 0) {
-      log.info("END", "Claude confirmed all transactions or could not resolve any");
 
       const result = {
         message: "All transactions confirmed or no suggestions",
@@ -186,16 +172,13 @@ export async function POST(request: Request) {
     }
 
     // 7. Update transactions with suggestions (only those that need changes)
-    log.debug("UPDATE", "Updating transactions with suggestions...");
     let suggestedCount = 0;
     for (const suggestion of claudeResponse.suggestions) {
       // Skip if AI confirms current assignment (no change needed)
       if (suggestion.confirmed) {
-        log.debug("UPDATE", `Transaction ${suggestion.transactionId}: confirmed current assignment`);
         continue;
       }
 
-      log.debug("UPDATE", `Transaction ${suggestion.transactionId}: ${suggestion.type} -> ${suggestion.existingName || suggestion.newEntity?.name || "unknown"} (${suggestion.confidence})`);
       await db.stagingTransaction.update({
         where: { id: suggestion.transactionId },
         data: {
@@ -206,7 +189,8 @@ export async function POST(request: Request) {
       suggestedCount++;
     }
 
-    endTotal(`Completed - ${suggestedCount}/${transactions.length} transactions need review`);
+    endTotal(`${suggestedCount}/${transactions.length} need review, $${claudeResponse.cost?.toFixed(4) ?? "?"}`);
+
 
     const result = {
       total: transactions.length,
@@ -280,109 +264,82 @@ function extractJsonFromMarkdown(text: string): string {
 async function callClaudeCLI(prompt: string): Promise<ClaudeResponse> {
   const { spawn } = await import("child_process");
 
-  try {
-    log.debug("CLAUDE", `Executing claude CLI (prompt: ${prompt.length} chars)`);
+  return new Promise((resolve, reject) => {
+    // Enable web search for researching merchants and employers
+    const child = spawn("claude", [
+      "--print",
+      "--output-format", "json",
+      "--allowedTools", "mcp__puppeteer__puppeteer_navigate,mcp__puppeteer__puppeteer_screenshot,WebSearch,WebFetch",
+      "-p", "-"
+    ], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
-    return new Promise((resolve, reject) => {
-      // Enable web search for researching merchants and employers
-      const child = spawn("claude", [
-        "--print",
-        "--output-format", "json",
-        "--allowedTools", "mcp__puppeteer__puppeteer_navigate,mcp__puppeteer__puppeteer_screenshot,WebSearch,WebFetch",
-        "-p", "-"
-      ], {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+    let stdout = "";
+    let stderr = "";
 
-      let stdout = "";
-      let stderr = "";
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
 
-      child.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
 
-      child.stderr.on("data", (data) => {
-        stderr += data.toString();
-        log.debug("CLAUDE", `stderr: ${data.toString().trim()}`);
-      });
+    child.on("error", (err) => {
+      log.error("CLAUDE", `spawn error: ${err.message}`);
+      reject(new Error(`Failed to spawn claude: ${err.message}`));
+    });
 
-      child.on("error", (err) => {
-        log.error("CLAUDE", `spawn error: ${err.message}`);
-        reject(new Error(`Failed to spawn claude: ${err.message}`));
-      });
+    child.on("close", (code) => {
+      if (code !== 0) {
+        log.error("CLAUDE", `CLI failed with code ${code}`);
+        reject(new Error(`Claude CLI exited with code ${code}`));
+        return;
+      }
 
-      child.on("close", (code) => {
-        log.debug("CLAUDE", `CLI exited with code ${code}, stdout: ${stdout.length} chars`);
+      try {
+        // Parse the CLI response wrapper
+        const cliResponse: ClaudeCLIResponse = JSON.parse(stdout);
 
-        if (code !== 0) {
-          log.error("CLAUDE", `CLI failed with code ${code}: ${stderr}`);
-          reject(new Error(`Claude CLI exited with code ${code}`));
+        if (cliResponse.is_error) {
+          log.error("CLAUDE", cliResponse.result.substring(0, 200));
+          reject(new Error(cliResponse.result));
           return;
         }
 
-        try {
-          // Parse the CLI response wrapper
-          const cliResponse: ClaudeCLIResponse = JSON.parse(stdout);
+        // Extract JSON from markdown code blocks
+        const jsonContent = extractJsonFromMarkdown(cliResponse.result);
 
-          // Log useful metadata
-          log.info("CLAUDE", `Response received`, {
-            data: {
-              duration: `${(cliResponse.duration_ms / 1000).toFixed(1)}s`,
-              cost: `$${cliResponse.total_cost_usd.toFixed(4)}`,
-              tokens: {
-                input: cliResponse.usage.input_tokens,
-                output: cliResponse.usage.output_tokens,
-                cacheRead: cliResponse.usage.cache_read_input_tokens,
-                cacheCreation: cliResponse.usage.cache_creation_input_tokens,
-              },
-            },
-          });
-
-          if (cliResponse.is_error) {
-            log.error("CLAUDE", `CLI returned error: ${cliResponse.result}`);
-            reject(new Error(cliResponse.result));
-            return;
-          }
-
-          // Extract JSON from markdown code blocks
-          const jsonContent = extractJsonFromMarkdown(cliResponse.result);
-          log.debug("CLAUDE", `Extracted JSON (${jsonContent.length} characters)`);
-
-          // Parse the actual response and add metadata
-          const parsed = JSON.parse(jsonContent);
-          const response: ClaudeResponse = {
-            suggestions: parsed.suggestions || [],
-            duration: cliResponse.duration_ms,
-            cost: cliResponse.total_cost_usd,
-            tokens: {
-              input: cliResponse.usage.input_tokens,
-              output: cliResponse.usage.output_tokens,
-            },
-          };
-          resolve(response);
-        } catch (parseError) {
-          log.error("CLAUDE", `Failed to parse response: ${parseError instanceof Error ? parseError.message : "Unknown"}`);
-          log.debug("CLAUDE", `Raw stdout: ${stdout.substring(0, 500)}...`);
-          reject(new Error("Failed to parse Claude response"));
-        }
-      });
-
-      // Set timeout
-      const timeout = setTimeout(() => {
-        log.error("CLAUDE", "CLI timeout after 2 minutes");
-        child.kill();
-        reject(new Error("Claude CLI timeout"));
-      }, 120000);
-
-      child.on("close", () => clearTimeout(timeout));
-
-      // Write prompt to stdin and close
-      child.stdin.write(prompt);
-      child.stdin.end();
-      log.debug("CLAUDE", "Prompt sent to stdin, waiting for response...");
+        // Parse the actual response and add metadata
+        const parsed = JSON.parse(jsonContent);
+        const response: ClaudeResponse = {
+          suggestions: parsed.suggestions || [],
+          duration: cliResponse.duration_ms,
+          cost: cliResponse.total_cost_usd,
+          tokens: {
+            input: cliResponse.usage.input_tokens,
+            output: cliResponse.usage.output_tokens,
+          },
+        };
+        resolve(response);
+      } catch (parseError) {
+        log.error("CLAUDE", `Parse failed: ${parseError instanceof Error ? parseError.message : "Unknown"}`);
+        reject(new Error("Failed to parse Claude response"));
+      }
     });
-  } catch (error) {
-    log.error("CLAUDE", `CLI error: ${error instanceof Error ? error.message : "Unknown"}`);
-    throw new Error("Failed to get response from Claude CLI");
-  }
+
+    // Set timeout
+    const timeout = setTimeout(() => {
+      log.error("CLAUDE", "Timeout after 2 minutes");
+      child.kill();
+      reject(new Error("Claude CLI timeout"));
+    }, 120000);
+
+    child.on("close", () => clearTimeout(timeout));
+
+    // Write prompt to stdin and close
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
 }

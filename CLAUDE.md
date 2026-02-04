@@ -15,6 +15,8 @@ npm run db:seed              # Seed database with categories and groups
 npx prisma migrate dev       # Run migrations
 npx prisma generate          # Regenerate Prisma client after schema changes
 
+# Note: Database auto-initializes on first run if it doesn't exist
+
 # Docker
 docker-compose up -d         # Run containerized
 docker-compose down          # Stop containers
@@ -36,29 +38,34 @@ docker-compose logs -f       # View logs
 
 The core workflow for importing bank statements:
 
-1. **Upload** → JSON statement uploaded via `/api/import`
-2. **ImportLog** → Audit record created tracking batch metadata, fingerprint for duplicate detection
+1. **Upload** → PDF or JSON statement uploaded at `/import`
+   - PDFs: Extracted via Claude CLI, metrics captured (duration, cost, tokens)
+   - JSON: Parsed directly
+2. **Import** → Record created in `Import` table with batch metadata, file hash for duplicate detection
 3. **StagingTransaction** → Transactions land here with status "pending"
-4. **Resolution** → `merchant-resolver.ts` matches raw descriptions to merchants via patterns
+4. **Resolution** → `merchant-resolver.ts` and `income-resolver.ts` match raw descriptions
 5. **Review** → User reviews at `/staging`, resolves unknowns, approves imports
 6. **Transaction** → Approved records move to permanent transactions table
 
 ### Database Schema
 
-**Core tables**: ImportLog → StagingTransaction → Transaction
+**Core tables**: Import → StagingTransaction → Transaction
 
-**Master data**: Merchant (with MerchantPattern for matching), Category (hierarchical with CategoryGroup), Cardholder, Account, Institution
+**Master data**: Merchant (with MerchantPattern), Income (with IncomePattern), Category (with CategoryGroup), Account, Institution
 
 Key relationships:
-- Merchants have multiple patterns for fuzzy matching raw descriptions
+- Merchants and Incomes have multiple patterns for matching raw descriptions
 - Categories support parent-child hierarchy and belong to groups
-- Transactions link to merchant, category, cardholder, and import batch
+- Transactions link to merchant/income, category, account, and import batch
+- Import stores extraction metrics (duration, cost, tokens) for PDF imports
 
 ### Key Libraries
 
 - `/src/lib/db.ts` - Prisma client singleton
 - `/src/lib/merchant-resolver.ts` - Pattern-based merchant matching
+- `/src/lib/income-resolver.ts` - Pattern-based income source matching
 - `/src/lib/staging-resolver.ts` - Staging transaction resolution logic
+- `/src/lib/account-resolver.ts` - Account auto-creation from statement data
 - `/src/lib/date-resolver.ts` - Date parsing utilities
 
 ### Path Aliases
@@ -267,5 +274,35 @@ docker-compose logs -f fintrack      # View logs
 ```bash
 DATABASE_URL=file:/app/data/fintrack.db
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-CRON_SECRET=your-secret-here  # Optional
+CRON_SECRET=your-secret-here      # Optional - auth for cron endpoint
+EXTRACT_CONCURRENCY=1             # Max concurrent PDF extractions (default: 1)
 ```
+
+## PDF Import with AI Extraction
+
+The import page accepts both JSON and PDF files. PDFs are processed using Claude CLI.
+
+### Queue System
+
+PDF extraction uses a queue to limit concurrent Claude CLI calls:
+- `EXTRACT_CONCURRENCY` env var controls max concurrent extractions (default: 1)
+- Multiple uploads are queued and processed sequentially
+- Queue status available at `GET /api/ai/extract-pdf`
+
+### Extraction Metrics
+
+Claude CLI response metrics are captured and stored in the Import model:
+- `extractDurationMs` - Extraction duration in milliseconds
+- `extractCostUsd` - Cost in USD (from Claude CLI)
+- `extractInputTokens` / `extractOutputTokens` - Token usage
+- `extractCacheTokens` - Cached tokens (if applicable)
+- `extractPdfSizeBytes` - Original PDF file size
+
+Metrics are displayed in the Import Log page when expanding a row (AI Processing card).
+
+### Files
+
+- `/src/lib/extract-queue.ts` - Queue manager singleton
+- `/src/lib/prompts/extract-pdf.ts` - Prompt builder for PDF extraction
+- `/src/app/import/actions.ts` - Server actions for extraction jobs
+- `/prisma/schema.prisma` - `DocumentSchema` model for extraction templates

@@ -120,8 +120,6 @@ export async function resolveBatch(
 ): Promise<BatchResolutionResult> {
   const onlyUnresolved = options?.onlyUnresolved ?? true;
 
-  log.debug("BATCH", `Starting batch resolution for ${importBatchId.substring(0, 8)}...`);
-
   // Get transactions to process
   const stagingTransactions = await db.stagingTransaction.findMany({
     where: onlyUnresolved
@@ -138,8 +136,6 @@ export async function resolveBatch(
           status: 'pending',
         },
   });
-
-  log.debug("BATCH", `Found ${stagingTransactions.length} transactions to process`);
 
   let datesResolved = 0;
   let merchantsResolved = 0;
@@ -189,17 +185,9 @@ export async function resolveBatch(
     if (!merchantOk && !incomeOk) unresolved++;
   }
 
-  log.info("BATCH", `Batch resolution complete`, {
-    data: {
-      total: stagingTransactions.length,
-      datesResolved,
-      merchantsResolved,
-      incomesResolved,
-      categoriesResolved,
-      fullyResolved,
-      unresolved,
-    },
-  });
+  if (stagingTransactions.length > 0) {
+    log.info("RESOLVE", `${stagingTransactions.length} txns: ${merchantsResolved} merchants, ${incomesResolved} incomes, ${unresolved} unknown`);
+  }
 
   return {
     total: stagingTransactions.length,
@@ -220,8 +208,6 @@ export async function resolveBatch(
  * @returns Batch resolution statistics
  */
 export async function resolveAllPending(): Promise<BatchResolutionResult> {
-  log.debug("ALL", "Starting resolution of all pending transactions...");
-
   const stagingTransactions = await db.stagingTransaction.findMany({
     where: {
       status: 'pending',
@@ -231,8 +217,6 @@ export async function resolveAllPending(): Promise<BatchResolutionResult> {
       ],
     },
   });
-
-  log.debug("ALL", `Found ${stagingTransactions.length} pending transactions`);
 
   let datesResolved = 0;
   let merchantsResolved = 0;
@@ -277,17 +261,9 @@ export async function resolveAllPending(): Promise<BatchResolutionResult> {
     if (!merchantOk && !incomeOk) unresolved++;
   }
 
-  log.info("ALL", `All pending resolution complete`, {
-    data: {
-      total: stagingTransactions.length,
-      datesResolved,
-      merchantsResolved,
-      incomesResolved,
-      categoriesResolved,
-      fullyResolved,
-      unresolved,
-    },
-  });
+  if (stagingTransactions.length > 0) {
+    log.info("RESOLVE", `Re-resolved ${stagingTransactions.length} txns: ${merchantsResolved} merchants, ${incomesResolved} incomes, ${unresolved} unknown`);
+  }
 
   return {
     total: stagingTransactions.length,

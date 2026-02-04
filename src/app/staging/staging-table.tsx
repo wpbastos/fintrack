@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useEffect, Fragment, useTransition, useCallback } from "react";
-import { ChevronDown, ChevronRight, Check, X, Sparkles, ArrowRightCircle, Trash2, Pencil, FileJson, Copy } from "lucide-react";
+import { useState, useEffect, Fragment, useTransition, useCallback, useMemo } from "react";
+import { ChevronDown, ChevronRight, Check, X, Sparkles, ArrowRightCircle, Trash2, Pencil, FileJson, Copy, Maximize2, Minimize2 } from "lucide-react";
+import {
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -22,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { approveSuggestion, rejectSuggestion, approveAllSuggestions, rejectAllSuggestions, importBatchTransactions, unmatchTransaction, deleteImportBatch, updateImportBalance, updateStagingTransaction, getStagingLookupData } from "./actions";
+import { approveSuggestion, rejectSuggestion, approveAllSuggestions, rejectAllSuggestions, importBatchTransactions, unmatchTransaction, deleteImportBatch, updateStagingTransaction, getStagingLookupData } from "./actions";
 import { formatDate, formatCurrency } from "@/lib/format";
 
 interface ClaudeSuggestion {
@@ -53,7 +60,7 @@ interface TransactionWithBalance {
   resolvedDate: Date | null;
   merchant: { name: string } | null;
   income: { name: string } | null;
-  category: { name: string; color: string | null; group: { color: string | null } | null } | null;
+  category: { name: string; color: string | null; group: { name: string; color: string | null } | null } | null;
   status: string;
   notes: string | null;
   balance: number | null;
@@ -77,29 +84,58 @@ interface ImportBatchInfo {
   addedCount: number;
   matchedCount: number;
   unknownCount: number;
+  accountId: number | null;
   accountName: string | null;
+  institutionName: string | null;
   content: string | null;
   aiStatus: string;
   aiStartedAt: Date | null;
   aiResult: string | null;
+  isFinalized: boolean;
+}
+
+interface AccountInfo {
+  id: number;
+  name: string;
+  type: string;
+  institution: { name: string } | null;
 }
 
 interface StagingTableProps {
   transactions: TransactionWithBalance[];
   batches: ImportBatchInfo[];
+  importedTransactions?: TransactionWithBalance[];
+  accounts?: AccountInfo[];
 }
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-  matched: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  unknown: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  suggested: "bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300",
-  imported: "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  pending: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  matched: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  unknown: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  suggested: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  imported: "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200",
 };
+
+const sourceTypeStyles: Record<string, string> = {
+  Statement: "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200",
+  CSV: "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200",
+  OFX: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  QFX: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  QIF: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200",
+  PDF: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+};
+
+function getSourceTypeBadge(type: string) {
+  return (
+    <span className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium w-20 shrink-0 ${sourceTypeStyles[type] ?? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"}`}>
+      {type}
+    </span>
+  );
+}
 
 function getStatusBadge(status: string) {
   return (
-    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${statusStyles[status] ?? statusStyles.pending}`}>
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${statusStyles[status] ?? statusStyles.pending}`}>
       {status}
     </span>
   );
@@ -129,7 +165,7 @@ function ClickableStatusBadge({ txnId, status, disabled = false }: { txnId: numb
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all ${statusStyles.matched} disabled:opacity-50`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all ${statusStyles.matched} disabled:opacity-50`}
       title="Click to unmatch and show raw description"
     >
       {isPending ? "..." : status}
@@ -173,12 +209,6 @@ function SuggestionActions({ txnId, suggestion }: { txnId: number; suggestion: C
   };
 
   const suggestedName = suggestion.existingName || suggestion.newEntity?.name || "Unknown";
-  const suggestedCategory = suggestion.existingCategoryName || suggestion.newEntity?.categoryName;
-  const parentCategory = suggestion.newEntity?.parentCategoryName;
-  // Display as "Parent > Subcategory" if parent exists
-  const categoryDisplay = parentCategory && suggestedCategory
-    ? `${parentCategory} > ${suggestedCategory}`
-    : suggestedCategory;
   const isNew = !suggestion.existingId;
   const confidenceColors = {
     high: "text-emerald-600 dark:text-emerald-400",
@@ -191,14 +221,17 @@ function SuggestionActions({ txnId, suggestion }: { txnId: number; suggestion: C
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-medium truncate">{suggestedName}</span>
-          {isNew && (
-            <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-              NEW
-            </span>
-          )}
-          {categoryDisplay && (
-            <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">
-              {categoryDisplay}
+          {isNew && suggestion.newEntity && (
+            <span
+              className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 cursor-help"
+              title={[
+                `Name: ${suggestion.newEntity.name}`,
+                `Pattern: ${suggestion.newEntity.pattern}`,
+                suggestion.newEntity.categoryName && `Category: ${suggestion.newEntity.parentCategoryName ? `${suggestion.newEntity.parentCategoryName} > ` : ""}${suggestion.newEntity.categoryName}`,
+                suggestion.newEntity.employerName && `Employer: ${suggestion.newEntity.employerName}`,
+              ].filter(Boolean).join("\n")}
+            >
+              New {suggestion.type === "merchant" ? "Merchant" : "Income"}
             </span>
           )}
           <span className={`shrink-0 text-[10px] ${confidenceColors[suggestion.confidence]}`}>
@@ -309,8 +342,6 @@ function BatchAiResolveButton({
   const [localStatus, setLocalStatus] = useState<"idle" | "resolving" | "complete" | "error">(
     initialAiStatus === "resolving" ? "resolving" : "idle"
   );
-  const [result, setResult] = useState<AiResolveResult | null>(() => parseAiResult(initialAiResult));
-  const [showResultDialog, setShowResultDialog] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(() => {
     if (initialAiStatus === "resolving" && aiStartedAt) {
       return Math.floor((Date.now() - new Date(aiStartedAt).getTime()) / 1000);
@@ -340,14 +371,12 @@ function BatchAiResolveButton({
           clearInterval(pollTimer);
           const parsed = parseAiResult(data.aiResult);
           if (parsed) {
-            setResult(parsed);
-            setLocalStatus("complete");
             if (parsed.suggested > 0) {
-              setShowResultDialog(true);
+              toast.success(`AI found ${parsed.suggested} suggestions to review`);
             } else {
               toast.success("AI confirmed all transactions are correctly matched");
-              window.location.reload();
             }
+            window.location.reload();
           }
         } else if (data.aiStatus === "error") {
           clearInterval(timer);
@@ -393,14 +422,12 @@ function BatchAiResolveButton({
       } else {
         const parsed = parseAiResult(JSON.stringify(data), data.suggestions);
         if (parsed) {
-          setResult(parsed);
-          setLocalStatus("complete");
-
           if (parsed.suggested > 0) {
-            setShowResultDialog(true);
+            toast.success(`AI found ${parsed.suggested} suggestions to review`);
           } else {
             toast.success("AI confirmed all transactions are correctly matched");
           }
+          window.location.reload();
         }
       }
     } catch (err) {
@@ -411,127 +438,37 @@ function BatchAiResolveButton({
     }
   };
 
-  const handleDialogClose = () => {
-    setShowResultDialog(false);
-    if (result && result.suggested > 0) {
-      window.location.reload();
-    }
-  };
-
-  // Resolving state - show in batch header
+  // Resolving state - show spinning icon button
   if (localStatus === "resolving" || initialAiStatus === "resolving") {
     return (
-      <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
-        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-purple-600 dark:text-purple-400 cursor-wait"
+        disabled
+        title={`Analyzing ${transactionCount} transactions... ${elapsedTime > 0 ? `(${elapsedTime}s)` : ""}`}
+      >
+        <svg className="w-3.5 h-3.5 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
         </svg>
-        <span className="text-xs font-medium">
-          Analyzing {transactionCount} transactions... {elapsedTime > 0 && `(${elapsedTime}s)`}
-        </span>
-      </div>
+        {elapsedTime > 0 ? `${elapsedTime}s` : "AI"}
+      </Button>
     );
   }
 
   return (
-    <>
-      <Button
-        size="sm"
-        variant="ghost"
-        className={`h-7 px-2 ${disabled ? "text-slate-300 cursor-not-allowed dark:text-slate-600" : "text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950"}`}
-        onClick={disabled ? (e) => e.stopPropagation() : handleAiResolve}
-        disabled={disabled}
-        title={disabled ? disabledReason : `AI analyze all ${transactionCount} transactions`}
-      >
-        <Sparkles className="w-3.5 h-3.5 mr-1" />
-        AI
-      </Button>
-
-      {/* Results Dialog */}
-      <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
-        <DialogContent onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-600" />
-              AI Analysis Complete
-            </DialogTitle>
-            <DialogDescription>
-              Analyzed {result?.total} transactions
-            </DialogDescription>
-          </DialogHeader>
-
-          {result && (
-            <div className="space-y-4 py-2">
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-                  <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                    {result.confirmed}
-                  </div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-500">Confirmed</div>
-                </div>
-                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
-                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">
-                    {result.suggested}
-                  </div>
-                  <div className="text-xs text-purple-600 dark:text-purple-500">Need Review</div>
-                </div>
-              </div>
-
-              {/* Suggestion Breakdown */}
-              {result.suggested > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Suggestions Breakdown</h4>
-                  <div className="text-sm space-y-1 text-muted-foreground">
-                    {result.existingMatches > 0 && (
-                      <div className="flex justify-between">
-                        <span>Match to existing merchant/income:</span>
-                        <span className="font-medium text-foreground">{result.existingMatches}</span>
-                      </div>
-                    )}
-                    {result.newMerchants > 0 && (
-                      <div className="flex justify-between">
-                        <span>New merchants to create:</span>
-                        <span className="font-medium text-blue-600 dark:text-blue-400">{result.newMerchants}</span>
-                      </div>
-                    )}
-                    {result.newIncomes > 0 && (
-                      <div className="flex justify-between">
-                        <span>New income sources to create:</span>
-                        <span className="font-medium text-blue-600 dark:text-blue-400">{result.newIncomes}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Performance Stats */}
-              {(result.duration || result.cost || result.tokens) && (
-                <div className="pt-2 border-t">
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {result.duration && (
-                      <span>Duration: {(result.duration / 1000).toFixed(1)}s</span>
-                    )}
-                    {result.cost && (
-                      <span>Cost: ${result.cost.toFixed(4)}</span>
-                    )}
-                    {result.tokens && (
-                      <span>Tokens: {result.tokens.input.toLocaleString()} in / {result.tokens.output.toLocaleString()} out</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button onClick={handleDialogClose}>
-              {result?.suggested ? "Review Suggestions" : "Close"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      size="sm"
+      variant="ghost"
+      className={`h-7 px-2 ${disabled ? "text-slate-300 cursor-not-allowed dark:text-slate-600" : "text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950"}`}
+      onClick={disabled ? (e) => e.stopPropagation() : handleAiResolve}
+      disabled={disabled}
+      title={disabled ? disabledReason : `AI analyze all ${transactionCount} transactions`}
+    >
+      <Sparkles className="w-3.5 h-3.5 mr-1" />
+      AI
+    </Button>
   );
 }
 
@@ -649,6 +586,7 @@ function BatchDeleteButton({ importId, fileName, disabled = false }: { importId:
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent batch toggle
+    if (disabled) return;
     if (!confirm(`Delete import "${fileName}" and all its transactions?`)) return;
 
     startTransition(async () => {
@@ -665,10 +603,10 @@ function BatchDeleteButton({ importId, fileName, disabled = false }: { importId:
     <Button
       size="icon"
       variant="ghost"
-      className={`h-7 w-7 ${disabled ? "text-slate-300 cursor-not-allowed dark:text-slate-600" : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950"}`}
-      onClick={disabled ? (e) => e.stopPropagation() : handleDelete}
+      className={`h-7 w-7 ${disabled ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950"}`}
+      onClick={handleDelete}
       disabled={isPending || disabled}
-      title={disabled ? "Review suggestions first" : "Delete import"}
+      title={disabled ? "Cannot delete imported batch" : "Delete import"}
     >
       <Trash2 className="w-3.5 h-3.5" />
     </Button>
@@ -948,186 +886,6 @@ function ViewContentButton({ content, fileName }: { content: string | null; file
   );
 }
 
-function BatchEditBalanceButton({
-  importId,
-  openingBalance,
-  closingBalance,
-  periodStart,
-  periodEnd,
-  transactionSum,
-  disabled = false,
-}: {
-  importId: number;
-  openingBalance: number;
-  closingBalance: number;
-  periodStart: Date | null;
-  disabled?: boolean;
-  periodEnd: Date | null;
-  transactionSum: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const [opening, setOpening] = useState(openingBalance.toString());
-  const [closing, setClosing] = useState(closingBalance.toString());
-  const [startDate, setStartDate] = useState(periodStart ? periodStart.toISOString().split("T")[0] : "");
-  const [endDate, setEndDate] = useState(periodEnd ? periodEnd.toISOString().split("T")[0] : "");
-  const [isPending, startTransition] = useTransition();
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
-      setOpening(openingBalance.toString());
-      setClosing(closingBalance.toString());
-      setStartDate(periodStart ? periodStart.toISOString().split("T")[0] : "");
-      setEndDate(periodEnd ? periodEnd.toISOString().split("T")[0] : "");
-    }
-    setOpen(newOpen);
-  };
-
-  const handleAutoCalculate = () => {
-    const calculatedClosing = (parseFloat(opening) || 0) + transactionSum;
-    setClosing(calculatedClosing.toFixed(2));
-  };
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    startTransition(async () => {
-      const result = await updateImportBalance(importId, {
-        openingBalance: parseFloat(opening) || 0,
-        closingBalance: parseFloat(closing) || 0,
-        periodStart: startDate || null,
-        periodEnd: endDate || null,
-      });
-      if (result.success) {
-        toast.success("Import updated");
-        setOpen(false);
-      } else {
-        toast.error(result.error || "Failed to update import");
-      }
-    });
-  };
-
-  // Calculate what closing should be based on current opening input
-  const expectedClosing = (parseFloat(opening) || 0) + transactionSum;
-  const currentClosing = parseFloat(closing) || 0;
-  const isBalanced = Math.abs(expectedClosing - currentClosing) < 0.01;
-
-  return (
-    <Dialog open={open} onOpenChange={disabled ? undefined : handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          className={`h-7 w-7 ${disabled ? "text-slate-300 cursor-not-allowed dark:text-slate-600" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-950"}`}
-          onClick={(e) => e.stopPropagation()}
-          disabled={disabled}
-          title={disabled ? "Review suggestions first" : "Edit import details"}
-        >
-          <Pencil className="w-3.5 h-3.5" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent onClick={(e) => e.stopPropagation()}>
-        <DialogHeader>
-          <DialogTitle>Edit Import</DialogTitle>
-          <DialogDescription>Update statement period and balance.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSave}>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="startDate" className="text-sm font-medium">
-                  Period Start
-                </label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="endDate" className="text-sm font-medium">
-                  Period End
-                </label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="opening" className="text-sm font-medium">
-                  Opening Balance
-                </label>
-                <Input
-                  id="opening"
-                  type="number"
-                  step="0.01"
-                  value={opening}
-                  onChange={(e) => setOpening(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="closing" className="text-sm font-medium">
-                  Closing Balance
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="closing"
-                    type="number"
-                    step="0.01"
-                    value={closing}
-                    onChange={(e) => setClosing(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleAutoCalculate}
-                    title={`Auto-calculate: ${formatCurrency(expectedClosing)}`}
-                    className="shrink-0"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </Button>
-                </div>
-              </div>
-            </div>
-            {/* Balance validation preview */}
-            <div className={`text-xs p-2 rounded-md ${isBalanced ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"}`}>
-              <div className="flex justify-between">
-                <span>Transaction sum:</span>
-                <span className="font-mono">{formatCurrency(transactionSum)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Expected closing:</span>
-                <span className="font-mono">{formatCurrency(expectedClosing)}</span>
-              </div>
-              {!isBalanced && (
-                <div className="flex justify-between font-medium mt-1 pt-1 border-t border-amber-200 dark:border-amber-800">
-                  <span>Difference:</span>
-                  <span className="font-mono">{formatCurrency(currentClosing - expectedClosing)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 interface LookupData {
   merchants: Array<{ id: number; name: string; categoryId: number | null }>;
   incomes: Array<{ id: number; name: string; categoryId: number | null }>;
@@ -1136,10 +894,10 @@ interface LookupData {
 
 function TransactionEditDialog({
   txn,
-  disabled = false,
+  suggestion,
 }: {
   txn: TransactionWithBalance;
-  disabled?: boolean;
+  suggestion?: ClaudeSuggestion | null;
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -1153,36 +911,104 @@ function TransactionEditDialog({
   const [incomeId, setIncomeId] = useState<number | "">("");
   const [categoryId, setCategoryId] = useState<number | "">("");
 
+  // Helper to apply suggestion values to form
+  const applySuggestionValues = (data: LookupData) => {
+    if (!suggestion) return;
+
+    if (suggestion.type === "merchant") {
+      if (suggestion.existingId) {
+        setMerchantId(suggestion.existingId);
+        const merchant = data.merchants.find(m => m.id === suggestion.existingId);
+        if (merchant?.categoryId) setCategoryId(merchant.categoryId);
+      } else if (suggestion.existingName) {
+        // Case-insensitive name matching
+        const searchName = suggestion.existingName.toLowerCase();
+        const merchant = data.merchants.find(m => m.name.toLowerCase() === searchName);
+        if (merchant) {
+          setMerchantId(merchant.id);
+          if (merchant.categoryId) setCategoryId(merchant.categoryId);
+        }
+      }
+    } else if (suggestion.type === "income") {
+      if (suggestion.existingId) {
+        setIncomeId(suggestion.existingId);
+        const income = data.incomes.find(i => i.id === suggestion.existingId);
+        if (income?.categoryId) setCategoryId(income.categoryId);
+      } else if (suggestion.existingName) {
+        // Case-insensitive name matching
+        const searchName = suggestion.existingName.toLowerCase();
+        const income = data.incomes.find(i => i.name.toLowerCase() === searchName);
+        if (income) {
+          setIncomeId(income.id);
+          if (income.categoryId) setCategoryId(income.categoryId);
+        }
+      }
+    }
+
+    // If suggestion has a category, use it
+    if (suggestion.existingCategoryName) {
+      const searchName = suggestion.existingCategoryName.toLowerCase();
+      const cat = data.categories.find(c => c.name.toLowerCase() === searchName);
+      if (cat) setCategoryId(cat.id);
+    } else if (suggestion.newEntity?.categoryName) {
+      const searchName = suggestion.newEntity.categoryName.toLowerCase();
+      const cat = data.categories.find(c => c.name.toLowerCase() === searchName);
+      if (cat) setCategoryId(cat.id);
+    }
+  };
+
   const handleOpenChange = async (newOpen: boolean) => {
     if (newOpen) {
-      // Initialize form with current values
+      // Initialize form with current values or suggestion values
       setResolvedDate(txn.resolvedDate ? txn.resolvedDate.toISOString().split("T")[0] : "");
-      setAssignmentType(txn.income ? "income" : "merchant");
-      setMerchantId(txn.merchant ? (lookupData?.merchants.find(m => m.name === txn.merchant?.name)?.id ?? "") : "");
-      setIncomeId(txn.income ? (lookupData?.incomes.find(i => i.name === txn.income?.name)?.id ?? "") : "");
-      setCategoryId(txn.category ? (lookupData?.categories.find(c => c.name === txn.category?.name)?.id ?? "") : "");
 
-      // Load lookup data if not already loaded
-      if (!lookupData) {
-        setIsLoading(true);
-        try {
-          const data = await getStagingLookupData();
-          setLookupData(data);
-          // Re-initialize IDs with loaded data
-          if (txn.merchant) {
-            const m = data.merchants.find(m => m.name === txn.merchant?.name);
-            if (m) setMerchantId(m.id);
+      // If there's a suggestion, use its values
+      if (suggestion) {
+        setAssignmentType(suggestion.type);
+
+        // Load lookup data if needed, then apply suggestion
+        if (!lookupData) {
+          setIsLoading(true);
+          try {
+            const data = await getStagingLookupData();
+            setLookupData(data);
+            applySuggestionValues(data);
+          } finally {
+            setIsLoading(false);
           }
-          if (txn.income) {
-            const i = data.incomes.find(i => i.name === txn.income?.name);
-            if (i) setIncomeId(i.id);
+        } else {
+          // Lookup data already loaded, apply suggestion values
+          applySuggestionValues(lookupData);
+        }
+      } else {
+        // No suggestion - use current transaction values
+        setAssignmentType(txn.income ? "income" : "merchant");
+        setMerchantId(txn.merchant ? (lookupData?.merchants.find(m => m.name === txn.merchant?.name)?.id ?? "") : "");
+        setIncomeId(txn.income ? (lookupData?.incomes.find(i => i.name === txn.income?.name)?.id ?? "") : "");
+        setCategoryId(txn.category ? (lookupData?.categories.find(c => c.name === txn.category?.name)?.id ?? "") : "");
+
+        // Load lookup data if not already loaded
+        if (!lookupData) {
+          setIsLoading(true);
+          try {
+            const data = await getStagingLookupData();
+            setLookupData(data);
+            // Re-initialize IDs with loaded data
+            if (txn.merchant) {
+              const m = data.merchants.find(m => m.name === txn.merchant?.name);
+              if (m) setMerchantId(m.id);
+            }
+            if (txn.income) {
+              const i = data.incomes.find(i => i.name === txn.income?.name);
+              if (i) setIncomeId(i.id);
+            }
+            if (txn.category) {
+              const c = data.categories.find(c => c.name === txn.category?.name);
+              if (c) setCategoryId(c.id);
+            }
+          } finally {
+            setIsLoading(false);
           }
-          if (txn.category) {
-            const c = data.categories.find(c => c.name === txn.category?.name);
-            if (c) setCategoryId(c.id);
-          }
-        } finally {
-          setIsLoading(false);
         }
       }
     }
@@ -1238,22 +1064,26 @@ function TransactionEditDialog({
   ) ?? {};
 
   return (
-    <Dialog open={open} onOpenChange={disabled ? undefined : handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           size="icon"
           variant="ghost"
-          className={`h-6 w-6 ${disabled ? "text-slate-300 cursor-not-allowed dark:text-slate-600" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-950"}`}
-          disabled={disabled}
-          title={disabled ? "Review suggestions first" : "Edit transaction"}
+          className={`h-6 w-6 ${suggestion ? "text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-950"}`}
+          title={suggestion ? "Edit with AI suggestion" : "Edit transaction"}
         >
           <Pencil className="w-3 h-3" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Transaction</DialogTitle>
-          <DialogDescription>Update transaction details.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            {suggestion && <Sparkles className="w-4 h-4 text-purple-500" />}
+            {suggestion ? "Review AI Suggestion" : "Edit Transaction"}
+          </DialogTitle>
+          <DialogDescription>
+            {suggestion ? "AI has suggested values for this transaction. Review and save to apply." : "Update transaction details."}
+          </DialogDescription>
         </DialogHeader>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -1262,6 +1092,24 @@ function TransactionEditDialog({
         ) : (
           <form onSubmit={handleSave}>
             <div className="space-y-4 py-4">
+              {/* AI Suggestion Info */}
+              {suggestion && (
+                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-purple-700 dark:text-purple-300">
+                        {suggestion.newEntity ? "Create new" : "Match to existing"}: {suggestion.existingName || suggestion.newEntity?.name}
+                      </p>
+                      {suggestion.reasoning && (
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">{suggestion.reasoning}</p>
+                      )}
+                      <p className="text-xs text-purple-500 mt-1">Confidence: {suggestion.confidence}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Raw Description (read-only) */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
@@ -1331,7 +1179,7 @@ function TransactionEditDialog({
                     id="merchant"
                     value={merchantId}
                     onChange={(e) => handleMerchantChange(e.target.value ? parseInt(e.target.value) : "")}
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:bg-slate-800 dark:border-slate-700"
+                    className={`h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:bg-slate-800 dark:border-slate-700 ${suggestion?.newEntity && suggestion.type === "merchant" ? "border-purple-300 dark:border-purple-700" : "border-input"}`}
                   >
                     <option value="">Select merchant...</option>
                     {lookupData?.merchants.map((m) => (
@@ -1340,6 +1188,11 @@ function TransactionEditDialog({
                       </option>
                     ))}
                   </select>
+                  {suggestion?.newEntity && suggestion.type === "merchant" && !merchantId && (
+                    <p className="text-xs text-purple-600 dark:text-purple-400">
+                      AI suggests creating new: &quot;{suggestion.newEntity.name}&quot; — use Approve button to create, or select existing above
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1350,7 +1203,7 @@ function TransactionEditDialog({
                     id="income"
                     value={incomeId}
                     onChange={(e) => handleIncomeChange(e.target.value ? parseInt(e.target.value) : "")}
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:bg-slate-800 dark:border-slate-700"
+                    className={`h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:bg-slate-800 dark:border-slate-700 ${suggestion?.newEntity && suggestion.type === "income" ? "border-purple-300 dark:border-purple-700" : "border-input"}`}
                   >
                     <option value="">Select income source...</option>
                     {lookupData?.incomes.map((i) => (
@@ -1359,6 +1212,11 @@ function TransactionEditDialog({
                       </option>
                     ))}
                   </select>
+                  {suggestion?.newEntity && suggestion.type === "income" && !incomeId && (
+                    <p className="text-xs text-purple-600 dark:text-purple-400">
+                      AI suggests creating new: &quot;{suggestion.newEntity.name}&quot; — use Approve button to create, or select existing above
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1401,38 +1259,73 @@ function TransactionEditDialog({
   );
 }
 
-function StagingStatusFilter({ value, onChange }: { value: "pending" | "all"; onChange: (value: "pending" | "all") => void }) {
+function ToggleFilter<T extends string>({
+  options,
+  value,
+  onChange
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
   return (
     <div className="inline-flex rounded-lg border p-1 bg-muted/50">
-      <button
-        onClick={() => onChange("pending")}
-        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-          value === "pending"
-            ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
-            : "text-muted-foreground hover:text-foreground"
-        }`}
-      >
-        Pending
-      </button>
-      <button
-        onClick={() => onChange("all")}
-        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-          value === "all"
-            ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
-            : "text-muted-foreground hover:text-foreground"
-        }`}
-      >
-        All
-      </button>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            value === option.value
+              ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
 
-export function StagingTable({ transactions, batches }: StagingTableProps) {
-  // Filter state: "pending" shows only not-imported, "all" shows everything
-  const [statusFilter, setStatusFilter] = useState<"pending" | "all">("pending");
+function AccountFilter({
+  accounts,
+  value,
+  onChange
+}: {
+  accounts: { id: number; name: string; type: string; institution: { name: string } | null }[];
+  value: number | "all";
+  onChange: (value: number | "all") => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+      className="h-9 rounded-lg border bg-muted/50 px-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+    >
+      <option value="all">All Accounts</option>
+      {accounts.map((account) => (
+        <option key={account.id} value={account.id}>
+          {account.name}{account.institution ? ` (${account.institution.name})` : ""}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+type MaximizedChart = "expenses" | "income" | null;
+
+export function StagingTable({ transactions, batches, importedTransactions = [], accounts = [] }: StagingTableProps) {
+  // Filter states
+  const [timeFilter, setTimeFilter] = useState<"thisYear" | "allTime">("thisYear");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "imported">("pending");
+  const [accountFilter, setAccountFilter] = useState<number | "all">("all");
+  const [maximized, setMaximized] = useState<MaximizedChart>(null);
+
   // Start with all batches collapsed
   const [expandedBatches, setExpandedBatches] = useState<Set<number>>(new Set());
+
+  // Get current year for time filter
+  const currentYear = new Date().getFullYear();
 
   const toggleBatch = (importId: number) => {
     setExpandedBatches((prev) => {
@@ -1450,7 +1343,7 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
     setExpandedBatches(new Set());
   };
 
-  // Group all transactions by batch first
+  // Group staging transactions by batch
   const transactionsByBatch = new Map<number, TransactionWithBalance[]>();
   transactions.forEach((txn) => {
     if (txn.importId) {
@@ -1461,18 +1354,35 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
     }
   });
 
-  // Filter batches based on status filter
-  // "pending" = batches that have at least one non-imported transaction
-  // "all" = all batches
-  const filteredBatches = batches.filter((batch) => {
-    const batchTxns = transactionsByBatch.get(batch.importId) ?? [];
-    if (batchTxns.length === 0) return false;
-
-    if (statusFilter === "pending") {
-      // Show batch only if it has pending transactions (not fully imported)
-      return batchTxns.some((t) => t.status !== "imported");
+  // Group imported transactions by batch
+  const importedByBatch = new Map<number, TransactionWithBalance[]>();
+  importedTransactions.forEach((txn) => {
+    if (txn.importId) {
+      if (!importedByBatch.has(txn.importId)) {
+        importedByBatch.set(txn.importId, []);
+      }
+      importedByBatch.get(txn.importId)!.push(txn);
     }
-    return true; // "all" - show all batches with transactions
+  });
+
+  // Filter batches based on all filters
+  const filteredBatches = batches.filter((batch) => {
+    // Status filter
+    if (statusFilter === "pending" && batch.isFinalized) return false;
+    if (statusFilter === "imported" && !batch.isFinalized) return false;
+
+    // Time filter - check periodEnd year
+    if (timeFilter === "thisYear" && batch.periodEnd) {
+      const batchYear = new Date(batch.periodEnd).getFullYear();
+      if (batchYear !== currentYear) return false;
+    }
+
+    // Account filter
+    if (accountFilter !== "all") {
+      if (batch.accountId !== accountFilter) return false;
+    }
+
+    return true;
   });
 
   // Count transactions by status (only from pending batches for accurate count)
@@ -1487,14 +1397,257 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
     batchNumberMap.set(batch.importId, idx + 1);
   });
 
+  // Chart data: Category Group Distribution (from expense transactions only)
+  // Note: Credit card transactions are normalized on import (signs flipped)
+  // so negative = expense for all account types
+  const categoryChartData = useMemo(() => {
+    const groupMap = new Map<string, { name: string; value: number; color: string }>();
+
+    // Get transactions from filtered batches
+    const allTxns = filteredBatches.flatMap((batch) => {
+      if (batch.isFinalized) {
+        return importedByBatch.get(batch.importId) ?? [];
+      }
+      return transactionsByBatch.get(batch.importId) ?? [];
+    });
+
+    allTxns.forEach((txn) => {
+      if (txn.category?.group && txn.rawAmount !== null && txn.rawAmount < 0) {
+        const groupName = txn.category.group.name;
+        const color = txn.category.group.color || "#6366f1";
+        const existing = groupMap.get(groupName);
+        if (existing) {
+          existing.value += Math.abs(txn.rawAmount);
+        } else {
+          groupMap.set(groupName, { name: groupName, value: Math.abs(txn.rawAmount), color });
+        }
+      }
+    });
+
+    return Array.from(groupMap.values())
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8); // Top 8 groups
+  }, [filteredBatches, transactionsByBatch, importedByBatch]);
+
+  // Chart data: Income by Category (from income transactions only)
+  // Note: Credit card transactions are normalized on import (signs flipped)
+  // so positive = income/payment for all account types
+  const incomeChartData = useMemo(() => {
+    const categoryMap = new Map<string, { name: string; value: number; color: string }>();
+
+    // Get transactions from filtered batches
+    const allTxns = filteredBatches.flatMap((batch) => {
+      if (batch.isFinalized) {
+        return importedByBatch.get(batch.importId) ?? [];
+      }
+      return transactionsByBatch.get(batch.importId) ?? [];
+    });
+
+    allTxns.forEach((txn) => {
+      if (txn.category && txn.rawAmount !== null && txn.rawAmount > 0) {
+        const categoryName = txn.category.name;
+        const color = txn.category.color || txn.category.group?.color || "#10b981";
+        const existing = categoryMap.get(categoryName);
+        if (existing) {
+          existing.value += txn.rawAmount;
+        } else {
+          categoryMap.set(categoryName, { name: categoryName, value: txn.rawAmount, color });
+        }
+      }
+    });
+
+    return Array.from(categoryMap.values())
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8); // Top 8 categories
+  }, [filteredBatches, transactionsByBatch, importedByBatch]);
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex-1">
-          <BulkSuggestionActions suggestedCount={suggestedCount} />
-        </div>
-        <StagingStatusFilter value={statusFilter} onChange={setStatusFilter} />
+    <div className="space-y-4">
+      {/* Charts */}
+      <div className={`grid gap-6 ${maximized ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+          {/* Category Distribution Chart */}
+          {(maximized === null || maximized === "expenses") && (
+          <div className="bg-white dark:bg-slate-800 rounded-lg border p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold">Expenses by Group</h3>
+              <button
+                onClick={() => setMaximized(maximized === "expenses" ? null : "expenses")}
+                className="h-7 w-7 p-0 rounded-md text-slate-500 bg-slate-100 dark:text-slate-400 dark:bg-slate-700/50 shadow-[0_2px_0_0_rgba(100,116,139,0.3)] hover:bg-slate-200 hover:shadow-[0_0_8px_2px_rgba(100,116,139,0.3)] hover:scale-110 active:shadow-none active:scale-100 active:translate-y-[1px] transition-all duration-150 dark:hover:bg-slate-600/70 flex items-center justify-center"
+                title={maximized === "expenses" ? "Minimize" : "Maximize"}
+              >
+                {maximized === "expenses" ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div style={{ width: maximized ? 280 : 180, height: maximized ? 280 : 180 }} className="relative">
+                {categoryChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={maximized ? 70 : 45}
+                        outerRadius={maximized ? 120 : 75}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {categoryChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => formatCurrency(value as number)}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--background))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                    No data
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                {categoryChartData.length > 0 ? (
+                  categoryChartData.map((cat) => (
+                    <div key={cat.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <span className="truncate max-w-[120px]">{cat.name}</span>
+                      </div>
+                      <span className="font-mono text-muted-foreground">
+                        {formatCurrency(cat.value)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground">No categorized expenses</div>
+                )}
+              </div>
+            </div>
+          </div>
+          )}
+
+          {/* Income by Category Chart */}
+          {(maximized === null || maximized === "income") && (
+          <div className="bg-white dark:bg-slate-800 rounded-lg border p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold">Income by Category</h3>
+              <button
+                onClick={() => setMaximized(maximized === "income" ? null : "income")}
+                className="h-7 w-7 p-0 rounded-md text-slate-500 bg-slate-100 dark:text-slate-400 dark:bg-slate-700/50 shadow-[0_2px_0_0_rgba(100,116,139,0.3)] hover:bg-slate-200 hover:shadow-[0_0_8px_2px_rgba(100,116,139,0.3)] hover:scale-110 active:shadow-none active:scale-100 active:translate-y-[1px] transition-all duration-150 dark:hover:bg-slate-600/70 flex items-center justify-center"
+                title={maximized === "income" ? "Minimize" : "Maximize"}
+              >
+                {maximized === "income" ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div style={{ width: maximized ? 280 : 180, height: maximized ? 280 : 180 }} className="relative">
+                {incomeChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={incomeChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={maximized ? 70 : 45}
+                        outerRadius={maximized ? 120 : 75}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {incomeChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => formatCurrency(value as number)}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--background))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                    No data
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                {incomeChartData.length > 0 ? (
+                  incomeChartData.map((cat) => (
+                    <div key={cat.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <span className="truncate max-w-[120px]">{cat.name}</span>
+                      </div>
+                      <span className="font-mono text-muted-foreground">
+                        {formatCurrency(cat.value)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground">No categorized income</div>
+                )}
+              </div>
+            </div>
+          </div>
+          )}
       </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase">Time</span>
+          <ToggleFilter
+            options={[
+              { value: "thisYear", label: "This Year" },
+              { value: "allTime", label: "All Time" },
+            ]}
+            value={timeFilter}
+            onChange={setTimeFilter}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase">Status</span>
+          <ToggleFilter
+            options={[
+              { value: "all", label: "All" },
+              { value: "pending", label: "Pending" },
+              { value: "imported", label: "Imported" },
+            ]}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
+        </div>
+        {accounts.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase">Account</span>
+            <AccountFilter
+              accounts={accounts}
+              value={accountFilter}
+              onChange={setAccountFilter}
+            />
+          </div>
+        )}
+      </div>
+
+      <BulkSuggestionActions suggestedCount={suggestedCount} />
       <div className="rounded-md border">
         <Table className="table-fixed">
           <TableHeader>
@@ -1514,134 +1667,125 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
               const isExpanded = expandedBatches.has(batch.importId);
               const batchTransactions = transactionsByBatch.get(batch.importId) ?? [];
               const fileName = batch.fileName || `Import #${batch.importId}`;
-              const matchedCount = batchTransactions.filter((t) => t.status === "matched").length;
-              const batchSuggestedCount = batchTransactions.filter((t) => t.status === "suggested").length;
-              const pendingCount = batchTransactions.filter((t) => t.status === "pending" || t.status === "unknown" || t.status === "suggested").length;
+
+              // For finalized batches, use stored counts from import record
+              const matchedCount = batch.isFinalized ? batch.transactionCount : batchTransactions.filter((t) => t.status === "matched").length;
+              const batchSuggestedCount = batch.isFinalized ? 0 : batchTransactions.filter((t) => t.status === "suggested").length;
+              const pendingCount = batch.isFinalized ? 0 : batchTransactions.filter((t) => t.status === "pending" || t.status === "unknown" || t.status === "suggested").length;
               // Ready to import: all transactions matched, balance verified, has transactions
-              const isReadyToImport = pendingCount === 0 && matchedCount > 0 && batch.isBalanced;
-              // Disable AI resolve if suggestions pending or all already matched
-              const allMatched = matchedCount === batchTransactions.length;
-              const aiDisabled = batchSuggestedCount > 0 || allMatched;
-              const aiDisabledReason = batchSuggestedCount > 0 ? "Review suggestions first" : allMatched ? "All transactions already matched" : undefined;
+              const isReadyToImport = pendingCount === 0 && matchedCount > 0 && batch.isBalanced && !batch.isFinalized;
+              // Disable AI resolve if suggestions pending or all already matched or finalized
+              const allMatched = batch.isFinalized || matchedCount === batchTransactions.length;
+              const aiDisabled = batchSuggestedCount > 0 || allMatched || batch.isFinalized;
+              const aiDisabledReason = batch.isFinalized ? "Already imported" : batchSuggestedCount > 0 ? "Review suggestions first" : allMatched ? "All transactions already matched" : undefined;
 
               return (
                 <Fragment key={batch.importId}>
                   {/* Batch Header Row */}
                   <TableRow
-                    className="bg-indigo-50/50 dark:bg-indigo-950/30 border-t-2 border-indigo-200 dark:border-indigo-800 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30"
+                    className="cursor-pointer hover:bg-muted/50"
                     onClick={() => toggleBatch(batch.importId)}
                   >
                     <TableCell colSpan={7} className="py-2">
                       <div className="flex items-center gap-3">
                         {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         )}
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-semibold">
-                          {batchNumber}
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold bg-slate-200 dark:bg-slate-700">
+                          {batch.importId}
                         </span>
-                        <span className="inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 w-24 shrink-0">
-                          {batch.sourceType}
-                        </span>
-                        <span className="font-medium text-indigo-700 dark:text-indigo-300 truncate min-w-0">{fileName}</span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                          {batch.transactionCount} txns
-                          {batch.periodStart && batch.periodEnd && (
-                            <> · {formatDate(batch.periodStart, "MMM d")} – {formatDate(batch.periodEnd, "MMM d, yyyy")}</>
-                          )}
-                        </span>
+                        <div className="flex flex-col flex-none overflow-hidden" style={{ width: "280px" }}>
+                          <span className="font-medium truncate">
+                            {batch.accountName || <span className="text-muted-foreground">No account</span>}
+                          </span>
+                          <span className="text-xs text-muted-foreground truncate h-4">
+                            {batch.institutionName || "\u00A0"}
+                          </span>
+                        </div>
+                        {getSourceTypeBadge(batch.sourceType)}
+                        {batch.transactionCount > 0 ? (
+                          <div className="relative w-9 h-9 shrink-0" title={`${batch.transactionCount} total · ${matchedCount} matched · ${batch.unknownCount} unknown`}>
+                            <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                              <circle
+                                cx="18" cy="18" r="15.9"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                className="text-slate-100 dark:text-slate-700"
+                              />
+                              {matchedCount > 0 && (
+                                <circle
+                                  cx="18" cy="18" r="15.9"
+                                  fill="none"
+                                  stroke="#10b981"
+                                  strokeWidth="3"
+                                  strokeDasharray={`${(matchedCount / batch.transactionCount) * 100} 100`}
+                                  strokeDashoffset="0"
+                                />
+                              )}
+                              {batch.unknownCount > 0 && (
+                                <circle
+                                  cx="18" cy="18" r="15.9"
+                                  fill="none"
+                                  stroke="#f59e0b"
+                                  strokeWidth="3"
+                                  strokeDasharray={`${(batch.unknownCount / batch.transactionCount) * 100} 100`}
+                                  strokeDashoffset={`${-((matchedCount / batch.transactionCount) * 100)}`}
+                                />
+                              )}
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[10px] font-bold">{batch.transactionCount}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                        {batch.periodStart && batch.periodEnd ? (
+                          <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">
+                            {formatDate(batch.periodStart)} → {formatDate(batch.periodEnd)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                         <span className="ml-auto flex items-center gap-2">
+                          <span className="font-mono text-sm shrink-0">
+                            {formatCurrency(batch.openingBalance)} → {formatCurrency(batch.closingBalance)}
+                          </span>
                           <BatchAiResolveButton
                             importId={batch.importId}
-                            transactionCount={batchTransactions.length}
+                            transactionCount={batch.isFinalized ? batch.transactionCount : batchTransactions.length}
                             aiStatus={batch.aiStatus}
                             aiStartedAt={batch.aiStartedAt}
                             aiResult={batch.aiResult}
-                            disabled={aiDisabled}
+                            disabled={aiDisabled || batch.isFinalized}
                             disabledReason={aiDisabledReason}
                           />
                           <BatchImportButton
                             importId={batch.importId}
                             matchedCount={matchedCount}
-                            isReady={isReadyToImport}
+                            isReady={isReadyToImport && !batch.isFinalized}
                             hasUnresolved={pendingCount > 0}
                             hasBalanceError={!batch.isBalanced}
                             onSuccess={collapseAll}
                           />
-                          <BatchDeleteButton importId={batch.importId} fileName={fileName} disabled={suggestedCount > 0} />
-                          <BatchEditBalanceButton
-                            importId={batch.importId}
-                            openingBalance={batch.openingBalance}
-                            closingBalance={batch.closingBalance}
-                            periodStart={batch.periodStart}
-                            periodEnd={batch.periodEnd}
-                            transactionSum={batchTransactions.reduce((sum, t) => sum + (t.rawAmount ?? 0), 0)}
-                            disabled={suggestedCount > 0}
-                          />
-                          {batch.isBalanced ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 min-w-[200px] justify-end" title="Balance verified">
-                              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="font-mono tabular-nums">{formatCurrency(batch.openingBalance)}</span>
-                              <span>→</span>
-                              <span className="font-mono tabular-nums">{formatCurrency(batch.closingBalance)}</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-rose-500 dark:text-rose-400 min-w-[200px] justify-end" title="Balance mismatch">
-                              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                              <span className="font-mono tabular-nums">{formatCurrency(batch.openingBalance)}</span>
-                              <span>→</span>
-                              <span className="font-mono tabular-nums">{formatCurrency(batch.closingBalance)}</span>
-                            </span>
-                          )}
+                          <BatchDeleteButton importId={batch.importId} fileName={fileName} disabled={batch.isFinalized} />
+                          <ViewContentButton content={batch.content} fileName={batch.fileName} />
                         </span>
                       </div>
                     </TableCell>
                   </TableRow>
 
-                  {/* Import Info Row (only when expanded) */}
-                  {isExpanded && (
-                    <TableRow className="bg-slate-50/50 dark:bg-slate-900/30">
-                      <TableCell colSpan={7} className="py-2">
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          {batch.accountName && (
-                            <span className="flex items-center gap-1">
-                              <span className="font-medium text-foreground">Account:</span>
-                              {batch.accountName}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <span className="font-medium text-foreground">Added:</span>
-                            {batch.addedCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="font-medium text-emerald-600 dark:text-emerald-400">Matched:</span>
-                            {batch.matchedCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="font-medium text-amber-600 dark:text-amber-400">Unknown:</span>
-                            {batch.unknownCount}
-                          </span>
-                          <span className="ml-auto">
-                            <ViewContentButton content={batch.content} fileName={batch.fileName} />
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {/* Transaction Rows (only when expanded) */}
+                  {/* Transaction Rows (unified for both pending and imported) */}
                   {isExpanded &&
-                    batchTransactions.map((txn) => {
-                      const suggestion = txn.status === "suggested" ? parseSuggestion(txn.notes) : null;
+                    (batch.isFinalized ? importedByBatch.get(batch.importId) ?? [] : batchTransactions).map((txn) => {
+                      const suggestion = !batch.isFinalized && txn.status === "suggested" ? parseSuggestion(txn.notes) : null;
                       const resolvedName = txn.merchant?.name || txn.income?.name;
 
                       return (
-                        <TableRow key={txn.id} className={txn.status === "suggested" ? "bg-purple-50/30 dark:bg-purple-950/20" : ""}>
+                        <TableRow key={batch.isFinalized ? `imported-${txn.id}` : txn.id} className={txn.status === "suggested" ? "bg-purple-50/30 dark:bg-purple-950/20" : ""}>
                           <TableCell className="font-mono text-sm" title={txn.rawDate ?? ""}>
                             {txn.resolvedDate ? (
                               <span className="font-medium">{formatDate(txn.resolvedDate)}</span>
@@ -1661,17 +1805,20 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
                           <TableCell>
                             {txn.category ? (
                               <span
-                                className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
+                                className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
                                 style={{
                                   backgroundColor: `${txn.category.color || txn.category.group?.color || "#6366f1"}20`,
                                   color: txn.category.color || txn.category.group?.color || "#6366f1",
                                 }}
                               >
-                                <span
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: txn.category.color || txn.category.group?.color || "#6366f1" }}
-                                />
                                 {txn.category.name}
+                              </span>
+                            ) : suggestion?.existingCategoryName || suggestion?.newEntity?.categoryName ? (
+                              <span
+                                className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 border border-dashed border-purple-300 dark:border-purple-700"
+                                title="Suggested category"
+                              >
+                                {suggestion.existingCategoryName || suggestion.newEntity?.categoryName}
                               </span>
                             ) : (
                               <span className="text-muted-foreground text-xs">—</span>
@@ -1700,10 +1847,16 @@ export function StagingTable({ transactions, batches }: StagingTableProps) {
                             ) : null}
                           </TableCell>
                           <TableCell>
-                            <ClickableStatusBadge txnId={txn.id} status={txn.status} disabled={suggestedCount > 0} />
+                            {batch.isFinalized ? (
+                              getStatusBadge("imported")
+                            ) : (
+                              <ClickableStatusBadge txnId={txn.id} status={txn.status} disabled={txn.status === "suggested"} />
+                            )}
                           </TableCell>
                           <TableCell className="p-1">
-                            <TransactionEditDialog txn={txn} disabled={suggestedCount > 0} />
+                            {!batch.isFinalized && (
+                              <TransactionEditDialog txn={txn} suggestion={suggestion} />
+                            )}
                           </TableCell>
                         </TableRow>
                       );

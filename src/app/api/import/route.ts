@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { randomUUID, createHash } from "crypto";
+import { randomUUID } from "crypto";
 import { resolveBatch } from "@/lib/staging-resolver";
 import {
   resolveOrCreateAccount,
@@ -8,10 +8,6 @@ import {
   type AccountInput,
 } from "@/lib/account-resolver";
 import { importLogger as log } from "@/lib/logger";
-
-function generateContentHash(content: string): string {
-  return createHash("sha256").update(content).digest("hex");
-}
 
 interface AccountData {
   accountName: string;
@@ -32,10 +28,46 @@ interface StatementData {
   sourceType?: string;
 }
 
+interface LocationData {
+  city?: string;
+  province?: string;
+  country?: string;
+}
+
+interface ForeignCurrencyData {
+  amount?: number;
+  currency?: string;
+  rate?: number;
+}
+
 interface TransactionData {
+  // Kernel fields (required)
   date: string;
   description: string;
   amount: number;
+  // Optional metadata
+  postingDate?: string;
+  cardNumber?: string;
+  location?: LocationData;
+  foreignCurrency?: ForeignCurrencyData;
+  balance?: number;
+  transactionType?: string;
+  referenceNumber?: string;
+  terminalId?: string;
+  targetAccount?: string;
+  sourceAccount?: string;
+  categoryHint?: string;
+}
+
+interface ExtractionMetrics {
+  duration?: number; // Duration in milliseconds
+  cost?: number; // Cost in USD
+  tokens?: {
+    input: number;
+    output: number;
+  };
+  cacheTokens?: number;
+  pdfSizeBytes?: number;
 }
 
 interface ImportPayload {
@@ -43,15 +75,8 @@ interface ImportPayload {
   transactions: TransactionData[];
   force?: boolean; // Force re-import if duplicate
   skipBalanceValidation?: boolean; // Skip balance validation
-}
-
-function generateFingerprint(
-  accountId: number | undefined,
-  periodEnd: string | undefined,
-  closingBalance: number | undefined,
-  txnCount: number
-): string {
-  return `${accountId ?? ""}|${periodEnd ?? ""}|${closingBalance ?? ""}|${txnCount}`;
+  fileHash?: string; // SHA-256 hash of original file
+  extractionMetrics?: ExtractionMetrics; // PDF extraction metrics from Claude CLI
 }
 
 export async function POST(request: NextRequest) {
@@ -72,19 +97,21 @@ export async function POST(request: NextRequest) {
 
     if (data.transactions.length === 0) {
       log.warn("VALIDATE", "No transactions to import");
-      return NextResponse.json(
-        { error: "No transactions to import" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        warning: true,
+        message: "No transactions found in this statement",
+        transactionCount: 0,
+      });
     }
 
-    const { statement, transactions, force, skipBalanceValidation } = data;
+    const { statement, transactions, force, skipBalanceValidation, extractionMetrics } = data;
 
-    // Calculate transaction sum for balance validation
-    const transactionSum = transactions.reduce((sum, txn) => sum + (txn.amount ?? 0), 0);
-    const roundedSum = Math.round(transactionSum * 100) / 100;
+    // Calculate transaction sum for balance validation (will be recalculated after normalization)
+    let transactionSum = transactions.reduce((sum, txn) => sum + (txn.amount ?? 0), 0);
+    let roundedSum = Math.round(transactionSum * 100) / 100;
 
     // Validate balance: opening + sum(transactions) should equal closing
+    // Note: Balance validation happens BEFORE normalization using original values
     let balanceValidation: {
       isBalanced: boolean;
       openingBalance: number | null;
@@ -96,44 +123,33 @@ export async function POST(request: NextRequest) {
       isBalanced: true,
       openingBalance: statement.openingBalance ?? null,
       closingBalance: statement.closingBalance ?? null,
-      transactionSum: roundedSum,
+      transactionSum: Math.round(transactions.reduce((sum, txn) => sum + (txn.amount ?? 0), 0) * 100) / 100,
       expectedClosing: null,
       difference: null,
     };
 
     if (statement.openingBalance != null && statement.closingBalance != null) {
-      const expectedClosing = statement.openingBalance + transactionSum;
+      const originalSum = transactions.reduce((sum, txn) => sum + (txn.amount ?? 0), 0);
+      const expectedClosing = statement.openingBalance + originalSum;
       const balanceDiff = Math.abs(expectedClosing - statement.closingBalance);
 
       balanceValidation = {
         isBalanced: balanceDiff <= 0.01,
         openingBalance: statement.openingBalance,
         closingBalance: statement.closingBalance,
-        transactionSum: roundedSum,
+        transactionSum: Math.round(originalSum * 100) / 100,
         expectedClosing: Math.round(expectedClosing * 100) / 100,
         difference: Math.round(balanceDiff * 100) / 100,
       };
 
       log.debug("BALANCE", `Opening: ${statement.openingBalance}, Closing: ${statement.closingBalance}`);
-      log.debug("BALANCE", `Transaction sum: ${roundedSum}, Expected closing: ${balanceValidation.expectedClosing}`);
+      log.debug("BALANCE", `Transaction sum: ${balanceValidation.transactionSum}, Expected closing: ${balanceValidation.expectedClosing}`);
       log.debug("BALANCE", `Difference: ${balanceValidation.difference}, Balanced: ${balanceValidation.isBalanced}`);
-
-      if (!balanceValidation.isBalanced && !skipBalanceValidation) {
-        log.warn("BALANCE", `Balance mismatch! Expected ${expectedClosing}, got ${statement.closingBalance} (diff: ${balanceDiff})`);
-        return NextResponse.json(
-          {
-            error: "Balance mismatch",
-            balanceValidation,
-            message: `Transactions sum to ${roundedSum.toFixed(2)}, but opening (${statement.openingBalance}) + sum = ${balanceValidation.expectedClosing} ≠ closing (${statement.closingBalance}). Difference: ${balanceValidation.difference?.toFixed(2)}`
-          },
-          { status: 400 }
-        );
-      }
 
       if (balanceValidation.isBalanced) {
         log.info("BALANCE", "Balance validated successfully ✓");
       } else {
-        log.warn("BALANCE", "Balance mismatch - skipped validation per request");
+        log.warn("BALANCE", `Balance mismatch! Expected ${expectedClosing}, got ${statement.closingBalance} (diff: ${balanceDiff}) - continuing anyway`);
       }
     } else {
       log.debug("BALANCE", "Skipping balance validation - opening or closing balance not provided");
@@ -145,6 +161,7 @@ export async function POST(request: NextRequest) {
     let resolvedAccountId: number | undefined = statement.accountId;
     let accountCreated = false;
     let institutionCreated = false;
+    let accountType: string | null = null;
 
     if (!resolvedAccountId && statement.account) {
       log.debug("ACCOUNT", `Creating/finding account: ${statement.account.accountName}`);
@@ -169,80 +186,80 @@ export async function POST(request: NextRequest) {
       resolvedAccountId = accountResult.accountId;
       accountCreated = accountResult.accountCreated;
       institutionCreated = accountResult.institutionCreated;
+      accountType = statement.account.accountType;
       log.debug("ACCOUNT", `Account resolved: ID=${resolvedAccountId}, created=${accountCreated}, institutionCreated=${institutionCreated}`);
-    } else {
-      log.debug("ACCOUNT", `Using provided accountId: ${resolvedAccountId}`);
+    } else if (resolvedAccountId) {
+      // Fetch account type for existing account
+      const existingAccount = await db.account.findUnique({
+        where: { id: resolvedAccountId },
+        select: { type: true },
+      });
+      accountType = existingAccount?.type ?? null;
+      log.debug("ACCOUNT", `Using provided accountId: ${resolvedAccountId}, type: ${accountType}`);
     }
 
-    // Generate fingerprint for duplicate detection
-    const fingerprint = generateFingerprint(
-      resolvedAccountId,
-      statement.periodEnd,
-      statement.closingBalance,
-      transactions.length
-    );
-    log.debug("DUPLICATE", `Fingerprint: ${fingerprint}`);
+    // Check if this is a credit card account (signs need to be normalized)
+    const isCreditCard = accountType?.toLowerCase().includes("credit") ?? false;
 
-    // Check for duplicate import
-    const existingImport = await db.import.findUnique({
-      where: { statementFingerprint: fingerprint },
-    });
+    // Normalize credit card values: flip signs so negative = expense, positive = income
+    // This makes all accounts consistent from the user's perspective
+    let normalizedOpeningBalance = statement.openingBalance;
+    let normalizedClosingBalance = statement.closingBalance;
 
-    if (existingImport) {
-      log.debug("DUPLICATE", `Found existing import: ID=${existingImport.id}`);
-      if (!force) {
-        log.info("DUPLICATE", "Returning duplicate info to client");
-        // Return duplicate info, let client decide
-        return NextResponse.json({
-          duplicate: true,
-          existingImport: {
-            id: existingImport.id,
-            importedAt: existingImport.createdAt,
-            transactionCount: existingImport.transactionCount,
-          },
-        });
+    if (isCreditCard) {
+      log.debug("NORMALIZE", "Credit card detected - normalizing transaction signs");
+      // Flip balances: positive debt becomes negative (you owe money)
+      if (normalizedOpeningBalance != null) {
+        normalizedOpeningBalance = -normalizedOpeningBalance;
       }
+      if (normalizedClosingBalance != null) {
+        normalizedClosingBalance = -normalizedClosingBalance;
+      }
+      // Recalculate transaction sum with flipped signs
+      transactionSum = transactions.reduce((sum, txn) => sum + (-(txn.amount ?? 0)), 0);
+      roundedSum = Math.round(transactionSum * 100) / 100;
+      log.debug("NORMALIZE", `Normalized balances: ${normalizedOpeningBalance} -> ${normalizedClosingBalance}, sum: ${roundedSum}`);
+    }
 
-      log.debug("DUPLICATE", "Force re-import: deleting existing data...");
-      // Force re-import: delete existing staging transactions
-      await db.stagingTransaction.deleteMany({
-        where: { importId: existingImport.id },
+    // Check for duplicate by file hash
+    if (data.fileHash) {
+      const existingImport = await db.import.findUnique({
+        where: { fileHash: data.fileHash },
       });
 
-      // Delete the old import record
-      await db.import.delete({
-        where: { id: existingImport.id },
-      });
-      log.debug("DUPLICATE", "Existing import deleted");
+      if (existingImport) {
+        if (!force) {
+          log.info("DUPLICATE", `File already imported: ID=${existingImport.id}`);
+          return NextResponse.json({
+            duplicate: true,
+            existingImport: {
+              id: existingImport.id,
+              importedAt: existingImport.createdAt,
+              transactionCount: existingImport.transactionCount,
+            },
+          });
+        }
+
+        // Force re-import: delete existing data
+        log.debug("DUPLICATE", "Force re-import: deleting existing data...");
+        await db.stagingTransaction.deleteMany({
+          where: { importId: existingImport.id },
+        });
+        await db.import.delete({
+          where: { id: existingImport.id },
+        });
+        log.debug("DUPLICATE", "Existing import deleted");
+      }
     }
 
     // Generate batch ID for this import
     const batchId = randomUUID();
     log.debug("IMPORT", `Creating import record with batchId: ${batchId}`);
 
-    // Store original JSON content and calculate hash
+    // Store original JSON content
     const content = JSON.stringify(data);
-    const contentHash = generateContentHash(content);
-    log.debug("IMPORT", `Content hash: ${contentHash.substring(0, 16)}...`);
 
-    // Check for duplicate by content hash
-    const existingByHash = await db.import.findUnique({
-      where: { contentHash },
-    });
-
-    if (existingByHash && !force) {
-      log.info("DUPLICATE", `Duplicate content hash found: ID=${existingByHash.id}`);
-      return NextResponse.json({
-        duplicate: true,
-        existingImport: {
-          id: existingByHash.id,
-          importedAt: existingByHash.createdAt,
-          transactionCount: existingByHash.transactionCount,
-        },
-      });
-    }
-
-    // Create import entry
+    // Create import entry (using normalized balances for credit cards)
     const importRecord = await db.import.create({
       data: {
         fileName: statement.sourceFile ?? "unknown",
@@ -250,27 +267,47 @@ export async function POST(request: NextRequest) {
         accountId: resolvedAccountId,
         periodStart: statement.periodStart ? new Date(statement.periodStart) : null,
         periodEnd: statement.periodEnd ? new Date(statement.periodEnd) : null,
-        openingBalance: statement.openingBalance,
-        closingBalance: statement.closingBalance,
+        openingBalance: normalizedOpeningBalance,
+        closingBalance: normalizedClosingBalance,
         transactionCount: transactions.length,
         content,
-        contentHash,
-        statementFingerprint: fingerprint,
+        fileHash: data.fileHash,
         status: "staged",
+        // PDF extraction metrics
+        extractDurationMs: extractionMetrics?.duration,
+        extractCostUsd: extractionMetrics?.cost,
+        extractInputTokens: extractionMetrics?.tokens?.input,
+        extractOutputTokens: extractionMetrics?.tokens?.output,
+        extractCacheTokens: extractionMetrics?.cacheTokens,
+        extractPdfSizeBytes: extractionMetrics?.pdfSizeBytes,
       },
     });
 
-    // Create staging transactions
+    // Create staging transactions (normalizing amounts for credit cards)
     log.debug("STAGING", `Creating ${transactions.length} staging transactions...`);
     const stagingTransactions = await db.stagingTransaction.createMany({
       data: transactions.map((txn) => ({
         importBatchId: batchId,
         rawDate: txn.date,
         rawDescription: txn.description,
-        rawAmount: txn.amount,
+        // Normalize credit card amounts: flip sign so negative = expense, positive = income
+        rawAmount: isCreditCard ? -(txn.amount ?? 0) : txn.amount,
         accountId: resolvedAccountId,
         status: "pending",
         importId: importRecord.id,
+        // Optional metadata fields
+        postingDate: txn.postingDate ? new Date(txn.postingDate) : null,
+        cardNumber: txn.cardNumber ?? null,
+        location: txn.location ? JSON.stringify(txn.location) : null,
+        foreignCurrency: txn.foreignCurrency ? JSON.stringify(txn.foreignCurrency) : null,
+        // Also normalize running balance for credit cards
+        runningBalance: isCreditCard && txn.balance != null ? -txn.balance : txn.balance ?? null,
+        transactionType: txn.transactionType ?? null,
+        referenceNumber: txn.referenceNumber ?? null,
+        terminalId: txn.terminalId ?? null,
+        targetAccount: txn.targetAccount ?? null,
+        sourceAccount: txn.sourceAccount ?? null,
+        categoryHint: txn.categoryHint ?? null,
       })),
     });
     log.debug("STAGING", `Created ${stagingTransactions.count} staging transactions`);

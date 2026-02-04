@@ -26,8 +26,7 @@ model Import {
   matchedCount         Int       @default(0) @map("matched_count")
   unknownCount         Int       @default(0) @map("unknown_count")
   content              String?   @map("content") // Original JSON content
-  contentHash          String?   @unique @map("content_hash")
-  statementFingerprint String?   @unique @map("statement_fingerprint")
+  fileHash             String?   @unique @map("file_hash") // SHA-256 of original uploaded file
   status               String    @default("staged") @map("status") // staged, finalized
   processedAt          DateTime? @map("processed_at")
 
@@ -35,6 +34,14 @@ model Import {
   aiStatus             String    @default("idle") @map("ai_status") // idle, resolving, complete, error
   aiStartedAt          DateTime? @map("ai_started_at")
   aiResult             String?   @map("ai_result") // JSON with results
+
+  // PDF extraction metrics (from Claude CLI)
+  extractDurationMs    Int?      @map("extract_duration_ms")
+  extractCostUsd       Float?    @map("extract_cost_usd")
+  extractInputTokens   Int?      @map("extract_input_tokens")
+  extractOutputTokens  Int?      @map("extract_output_tokens")
+  extractCacheTokens   Int?      @map("extract_cache_tokens")
+  extractPdfSizeBytes  Int?      @map("extract_pdf_size_bytes")
 
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
@@ -56,6 +63,19 @@ model StagingTransaction {
   rawAmount            Float?    @map("raw_amount")
   accountId            Int?      @map("account_id")
   account              Account?  @relation(fields: [accountId], references: [id])
+
+  // Optional extracted metadata (kernel = date, description, amount; these are extras)
+  postingDate          DateTime? @map("posting_date")
+  cardNumber           String?   @map("card_number") // Last 4 digits for multi-card accounts
+  location             String?   @map("location") // JSON: { city, province, country }
+  foreignCurrency      String?   @map("foreign_currency") // JSON: { amount, currency, rate }
+  runningBalance       Float?    @map("running_balance") // Balance after transaction
+  transactionType      String?   @map("transaction_type") // payroll_deposit, etransfer_sent, etc.
+  referenceNumber      String?   @map("reference_number") // e-Transfer codes, claim numbers
+  terminalId           String?   @map("terminal_id") // Interac terminal ID
+  targetAccount        String?   @map("target_account") // Internal transfer destination (outgoing)
+  sourceAccount        String?   @map("source_account") // Internal transfer source (incoming)
+  categoryHint         String?   @map("category_hint") // AI-suggested category
 
   // Resolved after batch matching
   resolvedDate         DateTime? @map("resolved_date")
@@ -100,6 +120,18 @@ model Transaction {
   person              Person?   @relation(fields: [personId], references: [id])
   incomeId            Int?      @map("income_id")
   income              Income?   @relation(fields: [incomeId], references: [id])
+
+  // Optional extracted metadata (preserved from staging)
+  postingDate         DateTime? @map("posting_date")
+  cardNumber          String?   @map("card_number")
+  location            String?   @map("location") // JSON: { city, province, country }
+  foreignCurrency     String?   @map("foreign_currency") // JSON: { amount, currency, rate }
+  runningBalance      Float?    @map("running_balance")
+  transactionType     String?   @map("transaction_type")
+  referenceNumber     String?   @map("reference_number")
+  terminalId          String?   @map("terminal_id")
+  targetAccount       String?   @map("target_account")
+  sourceAccount       String?   @map("source_account")
 
   // Import reference
   importId            Int?      @map("import_id")
@@ -404,4 +436,31 @@ model Payslip {
 
   @@unique([incomeId, effectiveDate])
   @@map("payslip")
+}
+
+// Document Schema - stores JSON templates for different document types
+// Used for LLM extraction guidance and validation
+model DocumentSchema {
+  id              Int      @id @default(autoincrement()) @map("id")
+  code            String   @unique @map("code") // e.g., "triangle-mastercard", "td-visa", "adp-payslip"
+  name            String   @map("name") // e.g., "Triangle World Elite Mastercard Statement"
+  documentType    String   @map("document_type") // credit_card_statement, bank_statement, payslip, receipt, invoice
+  institutionName String?  @map("institution_name") // e.g., "Canadian Tire Bank"
+  version         String   @default("1.0") @map("version")
+
+  // Sample data with real values from an actual document
+  // Shows the AI what the extracted output should look like
+  sampleData      String   @map("sample_data") // JSON with example values
+
+  // Optional extraction hints for LLM
+  extractionNotes String?  @map("extraction_notes")
+
+  isActive        Boolean  @default(true) @map("is_active")
+  notes           String?  @map("notes")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([documentType])
+  @@index([institutionName])
+  @@map("document_schema")
 }

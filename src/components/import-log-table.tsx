@@ -61,6 +61,13 @@ interface Import {
   aiStatus: string;
   aiStartedAt: Date | null;
   createdAt: Date;
+  // PDF extraction metrics
+  extractDurationMs: number | null;
+  extractCostUsd: number | null;
+  extractInputTokens: number | null;
+  extractOutputTokens: number | null;
+  extractCacheTokens: number | null;
+  extractPdfSizeBytes: number | null;
 }
 
 interface ImportTableProps {
@@ -564,6 +571,8 @@ function formatChartCurrency(value: number) {
 }
 
 type MaximizedChart = "volume" | "balance" | null;
+type VolumeBarFilter = "all" | "transactions" | "matched" | "unknown";
+type BalanceBarFilter = "all" | "opening" | "difference" | "closing";
 
 function ImportEvolutionChart({
   logs,
@@ -575,6 +584,16 @@ function ImportEvolutionChart({
   onSelectId: (id: number | null) => void;
 }) {
   const [maximized, setMaximized] = useState<MaximizedChart>(null);
+  const [volumeFilter, setVolumeFilter] = useState<VolumeBarFilter>("all");
+  const [balanceFilter, setBalanceFilter] = useState<BalanceBarFilter>("all");
+
+  const toggleVolumeFilter = (bar: VolumeBarFilter) => {
+    setVolumeFilter(volumeFilter === bar ? "all" : bar);
+  };
+
+  const toggleBalanceFilter = (bar: BalanceBarFilter) => {
+    setBalanceFilter(balanceFilter === bar ? "all" : bar);
+  };
 
   // Each import is its own bar, sorted by period end date
   const chartData = useMemo(() => {
@@ -672,36 +691,57 @@ function ImportEvolutionChart({
                   height={36}
                   content={() => (
                     <div className="flex justify-center gap-6 text-sm mb-2">
-                      <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => toggleVolumeFilter("transactions")}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all ${
+                          volumeFilter === "transactions" ? "bg-indigo-100 dark:bg-indigo-900/50 ring-1 ring-indigo-300" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#6366f1" }} />
                         <span style={{ color: "#6366f1" }}>Total</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                      </button>
+                      <button
+                        onClick={() => toggleVolumeFilter("matched")}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all ${
+                          volumeFilter === "matched" ? "bg-emerald-100 dark:bg-emerald-900/50 ring-1 ring-emerald-300" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#10b981" }} />
                         <span style={{ color: "#10b981" }}>Matched</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                      </button>
+                      <button
+                        onClick={() => toggleVolumeFilter("unknown")}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all ${
+                          volumeFilter === "unknown" ? "bg-amber-100 dark:bg-amber-900/50 ring-1 ring-amber-300" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
                         <span style={{ color: "#f59e0b" }}>Unknown</span>
-                      </div>
+                      </button>
                     </div>
                   )}
                 />
+                {(volumeFilter === "all" || volumeFilter === "transactions") && (
                 <Bar dataKey="transactions" radius={[4, 4, 0, 0]} name="transactions" onClick={handleBarClick} cursor="pointer">
                   {chartData.map((entry) => (
                     <Cell key={entry.id} fill="#6366f1" opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3} />
                   ))}
                 </Bar>
+                )}
+                {(volumeFilter === "all" || volumeFilter === "matched") && (
                 <Bar dataKey="matched" radius={[4, 4, 0, 0]} name="matched" onClick={handleBarClick} cursor="pointer">
                   {chartData.map((entry) => (
                     <Cell key={entry.id} fill="#10b981" opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3} />
                   ))}
                 </Bar>
+                )}
+                {(volumeFilter === "all" || volumeFilter === "unknown") && (
                 <Bar dataKey="unknown" radius={[4, 4, 0, 0]} name="unknown" onClick={handleBarClick} cursor="pointer">
                   {chartData.map((entry) => (
                     <Cell key={entry.id} fill="#f59e0b" opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3} />
                   ))}
                 </Bar>
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -762,37 +802,62 @@ function ImportEvolutionChart({
                   height={36}
                   content={() => (
                     <div className="flex justify-center gap-6 text-sm mb-2">
-                      <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => toggleBalanceFilter("opening")}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all ${
+                          balanceFilter === "opening" ? "bg-slate-200 dark:bg-slate-600/50 ring-1 ring-slate-400" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#94a3b8" }} />
                         <span style={{ color: "#94a3b8" }}>Opening</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                      </button>
+                      <button
+                        onClick={() => toggleBalanceFilter("difference")}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all ${
+                          balanceFilter === "difference" ? "bg-emerald-100 dark:bg-emerald-900/50 ring-1 ring-emerald-300" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#10b981" }} />
                         <span style={{ color: "#10b981" }}>Net Change</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                      </button>
+                      <button
+                        onClick={() => toggleBalanceFilter("closing")}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all ${
+                          balanceFilter === "closing" ? "bg-blue-100 dark:bg-blue-900/50 ring-1 ring-blue-300" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#3b82f6" }} />
                         <span style={{ color: "#3b82f6" }}>Closing</span>
-                      </div>
+                      </button>
                     </div>
                   )}
                 />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
+                {(balanceFilter === "all" || balanceFilter === "opening") && (
                 <Bar dataKey="opening" radius={[4, 4, 0, 0]} name="opening" onClick={handleBarClick} cursor="pointer">
                   {chartData.map((entry) => (
                     <Cell key={entry.id} fill="#94a3b8" opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3} />
                   ))}
                 </Bar>
+                )}
+                {(balanceFilter === "all" || balanceFilter === "difference") && (
                 <Bar dataKey="difference" radius={[4, 4, 0, 0]} name="difference" onClick={handleBarClick} cursor="pointer">
                   {chartData.map((entry) => (
-                    <Cell key={entry.id} fill="#10b981" opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3} />
+                    <Cell
+                      key={entry.id}
+                      fill={entry.difference >= 0 ? "#10b981" : "#f43f5e"}
+                      opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3}
+                    />
                   ))}
                 </Bar>
+                )}
+                {(balanceFilter === "all" || balanceFilter === "closing") && (
                 <Bar dataKey="closing" radius={[4, 4, 0, 0]} name="closing" onClick={handleBarClick} cursor="pointer">
                   {chartData.map((entry) => (
                     <Cell key={entry.id} fill="#3b82f6" opacity={selectedId === null || selectedId === entry.id ? 1 : 0.3} />
                   ))}
                 </Bar>
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -899,15 +964,7 @@ export function ImportTable({ logs }: ImportTableProps) {
       </div>
 
       {/* Import History Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Import History</CardTitle>
-          <CardDescription>
-            Detailed log of all imported statement files
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-        <div className="rounded-md border">
+      <div className="rounded-md border">
       <Table className="table-fixed w-full">
         <colgroup>
           <col style={{ width: "3%" }} />
@@ -1155,14 +1212,58 @@ export function ImportTable({ logs }: ImportTableProps) {
                         </div>
 
                         {/* AI Status Card */}
-                        <div className="bg-white dark:bg-slate-800 rounded-lg border p-4 flex-1 min-w-[200px]">
+                        <div className="bg-white dark:bg-slate-800 rounded-lg border p-4 flex-1 min-w-[280px]">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">AI Processing</p>
-                          {log.aiStatus === "idle" ? (
+                          {/* PDF Extraction Metrics */}
+                          {log.extractDurationMs !== null && (
+                            <div className="space-y-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
+                              <p className="text-xs font-medium text-purple-600 dark:text-purple-400">PDF Extraction</p>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-muted-foreground">Duration</span>
+                                  <span className="font-mono">{(log.extractDurationMs / 1000).toFixed(1)}s</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-muted-foreground">Cost</span>
+                                  <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                                    ${log.extractCostUsd?.toFixed(4) ?? "—"}
+                                  </span>
+                                </div>
+                                {(log.extractInputTokens !== null || log.extractOutputTokens !== null) && (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Input</span>
+                                      <span className="font-mono text-xs">
+                                        {log.extractInputTokens?.toLocaleString() ?? "—"} tok
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Output</span>
+                                      <span className="font-mono text-xs">
+                                        {log.extractOutputTokens?.toLocaleString() ?? "—"} tok
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                                {log.extractPdfSizeBytes !== null && (
+                                  <div className="flex items-center justify-between col-span-2">
+                                    <span className="text-muted-foreground">PDF Size</span>
+                                    <span className="font-mono text-xs">
+                                      {(log.extractPdfSizeBytes / 1024).toFixed(0)} KB
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {/* AI Resolution Status */}
+                          {log.aiStatus === "idle" && !log.extractDurationMs ? (
                             <div className="flex items-center justify-center h-12 text-muted-foreground text-sm">
                               Not started
                             </div>
-                          ) : (
+                          ) : log.aiStatus !== "idle" ? (
                             <div className="space-y-2">
+                              <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Resolution</p>
                               <div className="flex items-center justify-between">
                                 <span className="text-sm text-muted-foreground">Status</span>
                                 {getAiStatusBadge(log.aiStatus)}
@@ -1174,7 +1275,7 @@ export function ImportTable({ logs }: ImportTableProps) {
                                 </div>
                               )}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </TableCell>
@@ -1185,9 +1286,7 @@ export function ImportTable({ logs }: ImportTableProps) {
           })}
         </TableBody>
       </Table>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
     </div>
   );
 }

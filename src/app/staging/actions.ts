@@ -47,16 +47,12 @@ interface ClaudeSuggestion {
  * Useful after adding new merchant/income source patterns
  */
 export async function resolveUnresolved(): Promise<ResolveResult> {
-  log.debug("RESOLVE", "Starting resolution of unresolved transactions...");
-
   // Get transactions that need resolution (pending or unknown)
   const transactions = await db.stagingTransaction.findMany({
     where: {
       status: { in: ["pending", "unknown"] },
     },
   });
-
-  log.debug("RESOLVE", `Found ${transactions.length} transactions to resolve`);
 
   let datesResolved = 0;
   let merchantsResolved = 0;
@@ -98,16 +94,9 @@ export async function resolveUnresolved(): Promise<ResolveResult> {
     if (dateOk && (merchantOk || incomeOk)) fullyResolved++;
   }
 
-  log.info("RESOLVE", `Resolution complete`, {
-    data: {
-      total: transactions.length,
-      datesResolved,
-      merchantsResolved,
-      incomesResolved,
-      categoriesResolved,
-      fullyResolved,
-    },
-  });
+  if (transactions.length > 0) {
+    log.info("RESOLVE", `${transactions.length} txns: ${merchantsResolved} merchants, ${incomesResolved} incomes, ${transactions.length - fullyResolved} unresolved`);
+  }
 
   revalidatePath("/staging");
 
@@ -122,24 +111,239 @@ export async function resolveUnresolved(): Promise<ResolveResult> {
 }
 
 /**
- * Approve an AI suggestion for a staging transaction
- * Creates new merchant/income source if suggested, adds patterns, and marks as matched
+ * Internal: Approve an AI suggestion without re-resolving other transactions
+ * Used by approveAllSuggestions for batch processing
  */
-export async function approveSuggestion(transactionId: number): Promise<{ success: boolean; error?: string }> {
-  log.debug("APPROVE", `Approving suggestion for transaction ${transactionId}`);
-
+async function approveSuggestionInternal(transactionId: number): Promise<{ success: boolean; error?: string }> {
   try {
     const txn = await db.stagingTransaction.findUnique({
       where: { id: transactionId },
     });
 
     if (!txn || txn.status !== "suggested" || !txn.notes) {
-      log.warn("APPROVE", `Transaction ${transactionId} not found or not in suggested status`);
       return { success: false, error: "Transaction not found or not in suggested status" };
     }
 
     const suggestion: ClaudeSuggestion = JSON.parse(txn.notes);
-    log.debug("APPROVE", `Suggestion: ${suggestion.type} -> ${suggestion.existingName || suggestion.newEntity?.name || "unknown"}`);
+
+    let merchantId: number | null = null;
+    let incomeId: number | null = null;
+    let categoryId: number | null = null;
+
+    if (suggestion.type === "merchant") {
+      if (suggestion.existingId) {
+        merchantId = suggestion.existingId;
+        if (suggestion.suggestedPattern) {
+          const existingPattern = await db.merchantPattern.findUnique({
+            where: { pattern: suggestion.suggestedPattern },
+          });
+          if (!existingPattern) {
+            await db.merchantPattern.create({
+              data: {
+                merchantId: suggestion.existingId,
+                pattern: suggestion.suggestedPattern,
+                priority: 0,
+              },
+            });
+            log.info("PATTERN", `"${suggestion.suggestedPattern}" -> ${suggestion.existingName}`);
+          }
+        }
+        const merchant = await db.merchant.findUnique({
+          where: { id: suggestion.existingId },
+          select: { categoryId: true },
+        });
+        categoryId = merchant?.categoryId ?? null;
+      } else if (suggestion.newEntity) {
+        let merchant = await db.merchant.findUnique({
+          where: { name: suggestion.newEntity.name },
+        });
+        if (merchant) {
+          merchantId = merchant.id;
+          categoryId = merchant.categoryId;
+          if (suggestion.newEntity.website || suggestion.newEntity.industry) {
+            await db.merchant.update({
+              where: { id: merchant.id },
+              data: {
+                website: merchant.website || suggestion.newEntity.website || null,
+                type: merchant.type || suggestion.newEntity.industry || null,
+              },
+            });
+          }
+        } else {
+          merchant = await db.merchant.create({
+            data: {
+              name: suggestion.newEntity.name,
+              categoryId: suggestion.newEntity.categoryId,
+              website: suggestion.newEntity.website,
+              type: suggestion.newEntity.industry,
+              isActive: true,
+            },
+          });
+          log.info("CREATE", `Merchant: ${suggestion.newEntity.name}`);
+          merchantId = merchant.id;
+          categoryId = suggestion.newEntity.categoryId ?? null;
+        }
+        const existingPattern = await db.merchantPattern.findUnique({
+          where: { pattern: suggestion.newEntity.pattern },
+        });
+        if (!existingPattern) {
+          await db.merchantPattern.create({
+            data: {
+              merchantId: merchantId,
+              pattern: suggestion.newEntity.pattern,
+              priority: 0,
+            },
+          });
+          log.info("PATTERN", `"${suggestion.newEntity.pattern}" -> ${suggestion.newEntity.name}`);
+        }
+      }
+    } else {
+      // income type
+      if (suggestion.existingId) {
+        incomeId = suggestion.existingId;
+        if (suggestion.suggestedPattern) {
+          const existingPattern = await db.incomePattern.findUnique({
+            where: { pattern: suggestion.suggestedPattern },
+          });
+          if (!existingPattern) {
+            await db.incomePattern.create({
+              data: {
+                incomeId: suggestion.existingId,
+                pattern: suggestion.suggestedPattern,
+                priority: 0,
+              },
+            });
+            log.info("PATTERN", `"${suggestion.suggestedPattern}" -> ${suggestion.existingName}`);
+          }
+        }
+        const incomeSource = await db.income.findUnique({
+          where: { id: suggestion.existingId },
+          select: { categoryId: true },
+        });
+        categoryId = incomeSource?.categoryId ?? null;
+      } else if (suggestion.newEntity) {
+        let incomeSource = await db.income.findUnique({
+          where: { name: suggestion.newEntity.name },
+        });
+        if (incomeSource) {
+          incomeId = incomeSource.id;
+          categoryId = incomeSource.categoryId;
+        } else {
+          let isEmploymentIncome = false;
+          if (suggestion.newEntity.categoryId) {
+            const category = await db.category.findUnique({
+              where: { id: suggestion.newEntity.categoryId },
+              include: { group: true },
+            });
+            isEmploymentIncome = category?.group?.name === "Employment Income";
+          }
+          let positionId: number | null = null;
+          if (isEmploymentIncome && suggestion.newEntity.employerName) {
+            let employer = await db.employer.findUnique({
+              where: { name: suggestion.newEntity.employerName },
+            });
+            if (!employer) {
+              employer = await db.employer.create({
+                data: {
+                  name: suggestion.newEntity.employerName,
+                  website: suggestion.newEntity.employerWebsite,
+                  industry: suggestion.newEntity.employerIndustry,
+                  isActive: true,
+                },
+              });
+              log.info("CREATE", `Employer: ${suggestion.newEntity.employerName}`);
+            } else {
+              if (suggestion.newEntity.employerWebsite || suggestion.newEntity.employerIndustry) {
+                await db.employer.update({
+                  where: { id: employer.id },
+                  data: {
+                    website: employer.website || suggestion.newEntity.employerWebsite || null,
+                    industry: employer.industry || suggestion.newEntity.employerIndustry || null,
+                  },
+                });
+              }
+            }
+            let position = await db.position.findFirst({
+              where: { employerId: employer.id, title: "Employee" },
+            });
+            if (!position) {
+              position = await db.position.create({
+                data: {
+                  title: "Employee",
+                  employerId: employer.id,
+                  isActive: true,
+                },
+              });
+              await db.employer.update({
+                where: { id: employer.id },
+                data: { isActive: true },
+              });
+            }
+            positionId = position.id;
+          }
+          incomeSource = await db.income.create({
+            data: {
+              name: suggestion.newEntity.name,
+              categoryId: suggestion.newEntity.categoryId,
+              positionId: positionId,
+              isActive: true,
+            },
+          });
+          log.info("CREATE", `Income: ${suggestion.newEntity.name}`);
+          incomeId = incomeSource.id;
+          categoryId = suggestion.newEntity.categoryId ?? null;
+        }
+        const existingPattern = await db.incomePattern.findUnique({
+          where: { pattern: suggestion.newEntity.pattern },
+        });
+        if (!existingPattern) {
+          await db.incomePattern.create({
+            data: {
+              incomeId: incomeId,
+              pattern: suggestion.newEntity.pattern,
+              priority: 0,
+            },
+          });
+          log.info("PATTERN", `"${suggestion.newEntity.pattern}" -> ${suggestion.newEntity.name}`);
+        }
+      }
+    }
+
+    await db.stagingTransaction.update({
+      where: { id: transactionId },
+      data: {
+        merchantId,
+        incomeId,
+        categoryId,
+        status: "matched",
+        matchConfidence: suggestion.confidence === "high" ? 90 : suggestion.confidence === "medium" ? 70 : 50,
+        notes: null,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    log.error("APPROVE", error instanceof Error ? error.message : "Unknown");
+    return { success: false, error: error instanceof Error ? error.message : "Failed to approve suggestion" };
+  }
+}
+
+/**
+ * Approve an AI suggestion for a staging transaction
+ * Creates new merchant/income source if suggested, adds patterns, and marks as matched
+ * Also re-resolves all other unresolved transactions across all batches
+ */
+export async function approveSuggestion(transactionId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const txn = await db.stagingTransaction.findUnique({
+      where: { id: transactionId },
+    });
+
+    if (!txn || txn.status !== "suggested" || !txn.notes) {
+      return { success: false, error: "Transaction not found or not in suggested status" };
+    }
+
+    const suggestion: ClaudeSuggestion = JSON.parse(txn.notes);
 
     let merchantId: number | null = null;
     let incomeId: number | null = null;
@@ -163,7 +367,7 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
                 priority: 0,
               },
             });
-            log.debug("APPROVE", `Created new pattern: ${suggestion.suggestedPattern}`);
+            log.info("PATTERN", `"${suggestion.suggestedPattern}" -> ${suggestion.existingName}`);
           }
         }
 
@@ -180,7 +384,6 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
         });
 
         if (merchant) {
-          log.debug("APPROVE", `Merchant already exists: ${suggestion.newEntity.name}`);
           merchantId = merchant.id;
           categoryId = merchant.categoryId;
 
@@ -205,7 +408,7 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
               isActive: true,
             },
           });
-          log.info("APPROVE", `Created new merchant: ${suggestion.newEntity.name}${suggestion.newEntity.website ? ` (${suggestion.newEntity.website})` : ""}`);
+          log.info("CREATE", `Merchant: ${suggestion.newEntity.name}`);
           merchantId = merchant.id;
           categoryId = suggestion.newEntity.categoryId ?? null;
         }
@@ -222,7 +425,7 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
               priority: 0,
             },
           });
-          log.debug("APPROVE", `Created pattern: ${suggestion.newEntity.pattern}`);
+          log.info("PATTERN", `"${suggestion.newEntity.pattern}" -> ${suggestion.newEntity.name}`);
         }
       }
     } else {
@@ -244,7 +447,7 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
                 priority: 0,
               },
             });
-            log.debug("APPROVE", `Created new pattern: ${suggestion.suggestedPattern}`);
+            log.info("PATTERN", `"${suggestion.suggestedPattern}" -> ${suggestion.existingName}`);
           }
         }
 
@@ -261,7 +464,6 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
         });
 
         if (incomeSource) {
-          log.debug("APPROVE", `Income source already exists: ${suggestion.newEntity.name}`);
           incomeId = incomeSource.id;
           categoryId = incomeSource.categoryId;
         } else {
@@ -294,9 +496,8 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
                   isActive: true,
                 },
               });
-              log.info("APPROVE", `Created employer: ${suggestion.newEntity.employerName}${suggestion.newEntity.employerWebsite ? ` (${suggestion.newEntity.employerWebsite})` : ""}`);
+              log.info("CREATE", `Employer: ${suggestion.newEntity.employerName}`);
             } else {
-              log.debug("APPROVE", `Using existing employer: ${suggestion.newEntity.employerName}`);
               // Update with enriched data if available and not already set
               if (suggestion.newEntity.employerWebsite || suggestion.newEntity.employerIndustry) {
                 await db.employer.update({
@@ -327,11 +528,8 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
                 where: { id: employer.id },
                 data: { isActive: true },
               });
-              log.info("APPROVE", `Created position for employer: ${employer.name} (employer enabled)`);
             }
             positionId = position.id;
-          } else if (suggestion.newEntity.employerName && !isEmploymentIncome) {
-            log.debug("APPROVE", `Skipping employer creation - category is not Employment Income`);
           }
 
           // Create new income source with position link (only for employment income)
@@ -343,7 +541,7 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
               isActive: true,
             },
           });
-          log.info("APPROVE", `Created income source: ${suggestion.newEntity.name}${positionId ? " (linked to employer)" : ""}`);
+          log.info("CREATE", `Income: ${suggestion.newEntity.name}`);
           incomeId = incomeSource.id;
           categoryId = suggestion.newEntity.categoryId ?? null;
         }
@@ -360,7 +558,7 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
               priority: 0,
             },
           });
-          log.debug("APPROVE", `Created pattern: ${suggestion.newEntity.pattern}`);
+          log.info("PATTERN", `"${suggestion.newEntity.pattern}" -> ${suggestion.newEntity.name}`);
         }
       }
     }
@@ -378,12 +576,49 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
       },
     });
 
-    log.info("APPROVE", `Approved transaction ${transactionId}: ${suggestion.type} -> ${suggestion.existingName || suggestion.newEntity?.name}`);
+    // Re-resolve ALL unresolved transactions across ALL batches
+    // This catches transactions that now match the newly created/linked merchant/income
+    const allUnresolved = await db.stagingTransaction.findMany({
+      where: {
+        id: { not: transactionId }, // Exclude the one we just approved
+        status: { in: ["pending", "unknown", "suggested"] },
+      },
+    });
+
+    let resolved = 0;
+    for (const otherTxn of allUnresolved) {
+      const resolution = await resolveTransaction(
+        otherTxn.rawDate,
+        otherTxn.rawDescription,
+        otherTxn.rawAmount
+      );
+
+      const hasPatternMatch = resolution.merchantId || resolution.incomeId;
+      if (hasPatternMatch) {
+        await db.stagingTransaction.update({
+          where: { id: otherTxn.id },
+          data: {
+            resolvedDate: resolution.resolvedDate,
+            merchantId: resolution.merchantId,
+            incomeId: resolution.incomeId,
+            categoryId: resolution.categoryId,
+            matchConfidence: resolution.matchConfidence,
+            status: "matched",
+            notes: null, // Clear any AI suggestion
+          },
+        });
+        resolved++;
+      }
+    }
+
+    if (resolved > 0) {
+      log.info("AUTO-RESOLVE", `${resolved} more transactions matched across all batches`);
+    }
 
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("APPROVE", `Failed to approve transaction ${transactionId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("APPROVE", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to approve suggestion" };
   }
 }
@@ -392,8 +627,6 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
  * Reject an AI suggestion - returns transaction to unknown status
  */
 export async function rejectSuggestion(transactionId: number): Promise<{ success: boolean; error?: string }> {
-  log.debug("REJECT", `Rejecting suggestion for transaction ${transactionId}`);
-
   try {
     await db.stagingTransaction.update({
       where: { id: transactionId },
@@ -403,42 +636,73 @@ export async function rejectSuggestion(transactionId: number): Promise<{ success
       },
     });
 
-    log.info("REJECT", `Rejected transaction ${transactionId}`);
-
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("REJECT", `Failed to reject transaction ${transactionId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("REJECT", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to reject suggestion" };
   }
 }
 
 /**
  * Approve all AI suggestions at once
+ * Optimized: processes all approvals first, then does one global re-resolve at the end
  */
-export async function approveAllSuggestions(): Promise<{ success: boolean; approved: number; error?: string }> {
-  log.debug("APPROVE_ALL", "Approving all suggestions...");
-
+export async function approveAllSuggestions(): Promise<{ success: boolean; approved: number; autoResolved: number; error?: string }> {
   try {
     const suggestedTxns = await db.stagingTransaction.findMany({
       where: { status: "suggested" },
     });
 
-    log.debug("APPROVE_ALL", `Found ${suggestedTxns.length} suggestions to approve`);
-
     let approved = 0;
     for (const txn of suggestedTxns) {
-      const result = await approveSuggestion(txn.id);
+      // Use internal approval without re-resolve (we'll do one at the end)
+      const result = await approveSuggestionInternal(txn.id);
       if (result.success) approved++;
     }
 
-    log.info("APPROVE_ALL", `Approved ${approved}/${suggestedTxns.length} suggestions`);
+    // Now do one global re-resolve for all remaining unresolved transactions
+    let autoResolved = 0;
+    const allUnresolved = await db.stagingTransaction.findMany({
+      where: {
+        status: { in: ["pending", "unknown", "suggested"] },
+      },
+    });
+
+    for (const otherTxn of allUnresolved) {
+      const resolution = await resolveTransaction(
+        otherTxn.rawDate,
+        otherTxn.rawDescription,
+        otherTxn.rawAmount
+      );
+
+      const hasPatternMatch = resolution.merchantId || resolution.incomeId;
+      if (hasPatternMatch) {
+        await db.stagingTransaction.update({
+          where: { id: otherTxn.id },
+          data: {
+            resolvedDate: resolution.resolvedDate,
+            merchantId: resolution.merchantId,
+            incomeId: resolution.incomeId,
+            categoryId: resolution.categoryId,
+            matchConfidence: resolution.matchConfidence,
+            status: "matched",
+            notes: null,
+          },
+        });
+        autoResolved++;
+      }
+    }
+
+    if (suggestedTxns.length > 0 || autoResolved > 0) {
+      log.info("APPROVE", `Approved ${approved}/${suggestedTxns.length} suggestions, auto-resolved ${autoResolved} more`);
+    }
 
     revalidatePath("/staging");
-    return { success: true, approved };
+    return { success: true, approved, autoResolved };
   } catch (error) {
-    log.error("APPROVE_ALL", `Failed: ${error instanceof Error ? error.message : "Unknown"}`);
-    return { success: false, approved: 0, error: error instanceof Error ? error.message : "Failed to approve suggestions" };
+    log.error("APPROVE", error instanceof Error ? error.message : "Unknown");
+    return { success: false, approved: 0, autoResolved: 0, error: error instanceof Error ? error.message : "Failed to approve suggestions" };
   }
 }
 
@@ -446,8 +710,6 @@ export async function approveAllSuggestions(): Promise<{ success: boolean; appro
  * Reject all AI suggestions at once
  */
 export async function rejectAllSuggestions(): Promise<{ success: boolean; rejected: number; error?: string }> {
-  log.debug("REJECT_ALL", "Rejecting all suggestions...");
-
   try {
     const result = await db.stagingTransaction.updateMany({
       where: { status: "suggested" },
@@ -457,12 +719,14 @@ export async function rejectAllSuggestions(): Promise<{ success: boolean; reject
       },
     });
 
-    log.info("REJECT_ALL", `Rejected ${result.count} suggestions`);
+    if (result.count > 0) {
+      log.info("REJECT", `Rejected ${result.count} suggestions`);
+    }
 
     revalidatePath("/staging");
     return { success: true, rejected: result.count };
   } catch (error) {
-    log.error("REJECT_ALL", `Failed: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("REJECT", error instanceof Error ? error.message : "Unknown");
     return { success: false, rejected: 0, error: error instanceof Error ? error.message : "Failed to reject suggestions" };
   }
 }
@@ -471,8 +735,6 @@ export async function rejectAllSuggestions(): Promise<{ success: boolean; reject
  * Exclude a single staging transaction (mark as skipped)
  */
 export async function excludeTransaction(transactionId: number): Promise<{ success: boolean; error?: string }> {
-  log.debug("EXCLUDE", `Excluding transaction ${transactionId}`);
-
   try {
     await db.stagingTransaction.update({
       where: { id: transactionId },
@@ -481,12 +743,10 @@ export async function excludeTransaction(transactionId: number): Promise<{ succe
       },
     });
 
-    log.info("EXCLUDE", `Excluded transaction ${transactionId}`);
-
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("EXCLUDE", `Failed to exclude transaction ${transactionId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("EXCLUDE", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to exclude transaction" };
   }
 }
@@ -496,26 +756,21 @@ export async function excludeTransaction(transactionId: number): Promise<{ succe
  * Skipped transactions are deleted, pending/unknown/suggested are left in staging
  */
 export async function importBatchTransactions(importId: number): Promise<{ success: boolean; imported: number; skipped: number; error?: string }> {
-  log.debug("IMPORT_BATCH", `Starting import for batch ${importId}...`);
-
   try {
     // Get matched transactions for this batch only
     const matchedTransactions = await db.stagingTransaction.findMany({
       where: { status: "matched", importId },
     });
 
-    log.debug("IMPORT_BATCH", `Found ${matchedTransactions.length} matched transactions in batch ${importId}`);
-
     let importedCount = 0;
 
     // Import each matched transaction
     for (const staging of matchedTransactions) {
       if (!staging.resolvedDate) {
-        log.warn("IMPORT_BATCH", `Skipping transaction ${staging.id} - no resolved date`);
         continue;
       }
 
-      // Create the transaction in the main table
+      // Create the transaction in the main table (including optional metadata)
       await db.transaction.create({
         data: {
           date: staging.resolvedDate,
@@ -528,6 +783,17 @@ export async function importBatchTransactions(importId: number): Promise<{ succe
           incomeId: staging.incomeId,
           personId: staging.personId,
           importId: staging.importId,
+          // Optional metadata preserved from extraction
+          postingDate: staging.postingDate,
+          cardNumber: staging.cardNumber,
+          location: staging.location,
+          foreignCurrency: staging.foreignCurrency,
+          runningBalance: staging.runningBalance,
+          transactionType: staging.transactionType,
+          referenceNumber: staging.referenceNumber,
+          terminalId: staging.terminalId,
+          targetAccount: staging.targetAccount,
+          sourceAccount: staging.sourceAccount,
         },
       });
 
@@ -560,16 +826,14 @@ export async function importBatchTransactions(importId: number): Promise<{ succe
       },
     });
 
-    log.info("IMPORT_BATCH", `Batch ${importId} import complete`, {
-      data: { imported: importedCount, skipped: skippedResult.count },
-    });
+    log.info("IMPORT", `Batch ${importId}: ${importedCount} imported, ${skippedResult.count} skipped`);
 
     revalidatePath("/staging");
     revalidatePath("/transactions");
 
     return { success: true, imported: importedCount, skipped: skippedResult.count };
   } catch (error) {
-    log.error("IMPORT_BATCH", `Failed to import batch ${importId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("IMPORT", error instanceof Error ? error.message : "Unknown");
     return { success: false, imported: 0, skipped: 0, error: error instanceof Error ? error.message : "Failed to import transactions" };
   }
 }
@@ -578,8 +842,6 @@ export async function importBatchTransactions(importId: number): Promise<{ succe
  * Delete an import batch and all its staging transactions
  */
 export async function deleteImportBatch(importId: number): Promise<{ success: boolean; error?: string }> {
-  log.debug("DELETE_BATCH", `Deleting import batch ${importId}`);
-
   try {
     // Delete all staging transactions for this import
     const deletedTxns = await db.stagingTransaction.deleteMany({
@@ -591,12 +853,12 @@ export async function deleteImportBatch(importId: number): Promise<{ success: bo
       where: { id: importId },
     });
 
-    log.info("DELETE_BATCH", `Deleted import ${importId} with ${deletedTxns.count} transactions`);
+    log.info("DELETE", `Batch ${importId}: ${deletedTxns.count} transactions removed`);
 
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("DELETE_BATCH", `Failed to delete import ${importId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("DELETE", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to delete import" };
   }
 }
@@ -605,8 +867,6 @@ export async function deleteImportBatch(importId: number): Promise<{ success: bo
  * Unmatch a staging transaction - returns it to unknown status and clears resolved data
  */
 export async function unmatchTransaction(transactionId: number): Promise<{ success: boolean; error?: string }> {
-  log.debug("UNMATCH", `Unmatching transaction ${transactionId}`);
-
   try {
     await db.stagingTransaction.update({
       where: { id: transactionId },
@@ -620,12 +880,10 @@ export async function unmatchTransaction(transactionId: number): Promise<{ succe
       },
     });
 
-    log.info("UNMATCH", `Unmatched transaction ${transactionId}`);
-
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("UNMATCH", `Failed to unmatch transaction ${transactionId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("UNMATCH", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to unmatch transaction" };
   }
 }
@@ -642,8 +900,6 @@ export async function updateImportBalance(
     periodEnd?: string | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  log.debug("UPDATE_IMPORT", `Updating import ${importId}`);
-
   try {
     await db.import.update({
       where: { id: importId },
@@ -655,12 +911,10 @@ export async function updateImportBalance(
       },
     });
 
-    log.info("UPDATE_IMPORT", `Updated import ${importId}`);
-
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("UPDATE_IMPORT", `Failed to update import ${importId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("UPDATE", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to update import" };
   }
 }
@@ -677,8 +931,6 @@ export async function updateStagingTransaction(
     categoryId?: number | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  log.debug("UPDATE_TXN", `Updating staging transaction ${transactionId}`);
-
   try {
     // Determine status based on whether we have a merchant or income
     const hasMatch = data.merchantId || data.incomeId;
@@ -697,12 +949,10 @@ export async function updateStagingTransaction(
       },
     });
 
-    log.info("UPDATE_TXN", `Updated staging transaction ${transactionId}`);
-
     revalidatePath("/staging");
     return { success: true };
   } catch (error) {
-    log.error("UPDATE_TXN", `Failed to update transaction ${transactionId}: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("UPDATE", error instanceof Error ? error.message : "Unknown");
     return { success: false, error: error instanceof Error ? error.message : "Failed to update transaction" };
   }
 }
@@ -750,26 +1000,21 @@ export async function getStagingLookupData(): Promise<{
  * Skipped transactions are deleted, pending/unknown/suggested are left in staging
  */
 export async function importAllTransactions(): Promise<{ success: boolean; imported: number; skipped: number; error?: string }> {
-  log.debug("IMPORT_ALL", "Starting import of all matched transactions...");
-
   try {
     // Get all matched transactions
     const matchedTransactions = await db.stagingTransaction.findMany({
       where: { status: "matched" },
     });
 
-    log.debug("IMPORT_ALL", `Found ${matchedTransactions.length} matched transactions to import`);
-
     let importedCount = 0;
 
     // Import each matched transaction
     for (const staging of matchedTransactions) {
       if (!staging.resolvedDate) {
-        log.warn("IMPORT_ALL", `Skipping transaction ${staging.id} - no resolved date`);
         continue;
       }
 
-      // Create the transaction in the main table
+      // Create the transaction in the main table (including optional metadata)
       await db.transaction.create({
         data: {
           date: staging.resolvedDate,
@@ -782,6 +1027,17 @@ export async function importAllTransactions(): Promise<{ success: boolean; impor
           incomeId: staging.incomeId,
           personId: staging.personId,
           importId: staging.importId,
+          // Optional metadata preserved from extraction
+          postingDate: staging.postingDate,
+          cardNumber: staging.cardNumber,
+          location: staging.location,
+          foreignCurrency: staging.foreignCurrency,
+          runningBalance: staging.runningBalance,
+          transactionType: staging.transactionType,
+          referenceNumber: staging.referenceNumber,
+          terminalId: staging.terminalId,
+          targetAccount: staging.targetAccount,
+          sourceAccount: staging.sourceAccount,
         },
       });
 
@@ -819,16 +1075,14 @@ export async function importAllTransactions(): Promise<{ success: boolean; impor
       });
     }
 
-    log.info("IMPORT_ALL", `Import complete`, {
-      data: { imported: importedCount, skipped: skippedResult.count },
-    });
+    log.info("IMPORT", `All batches: ${importedCount} imported, ${skippedResult.count} skipped`);
 
     revalidatePath("/staging");
     revalidatePath("/transactions");
 
     return { success: true, imported: importedCount, skipped: skippedResult.count };
   } catch (error) {
-    log.error("IMPORT_ALL", `Failed to import transactions: ${error instanceof Error ? error.message : "Unknown"}`);
+    log.error("IMPORT", error instanceof Error ? error.message : "Unknown");
     return { success: false, imported: 0, skipped: 0, error: error instanceof Error ? error.message : "Failed to import transactions" };
   }
 }

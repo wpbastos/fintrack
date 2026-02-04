@@ -96,7 +96,6 @@ export async function resolveIncome(description: string): Promise<{
   for (const patternEntry of sortedPatterns) {
     const normalizedPattern = patternEntry.pattern.toUpperCase();
     if (normalizedDescription.includes(normalizedPattern)) {
-      log.debug("MATCH", `"${description.substring(0, 30)}..." -> ${patternEntry.income.name} (pattern: ${patternEntry.pattern})`);
       return {
         incomeId: patternEntry.incomeId,
         name: patternEntry.income.name,
@@ -107,7 +106,6 @@ export async function resolveIncome(description: string): Promise<{
     }
   }
 
-  log.debug("NO_MATCH", `"${description.substring(0, 40)}..." - no pattern matched`);
   return null;
 }
 
@@ -227,8 +225,6 @@ export async function createIncomeWithPattern(
     priority?: number;
   }
 ): Promise<{ incomeId: number; pattern: string }> {
-  log.debug("CREATE", `Creating income: ${incomeName}`);
-
   // Check if income exists
   let income = await db.income.findUnique({
     where: { name: incomeName },
@@ -246,14 +242,11 @@ export async function createIncomeWithPattern(
         isActive: true,
       },
     });
-    log.info("CREATE", `Created new income: ${incomeName} (ID: ${income.id})`);
-  } else {
-    log.debug("CREATE", `Income already exists: ${incomeName} (ID: ${income.id})`);
+    log.info("CREATE", `Income: ${incomeName}`);
   }
 
   // Extract pattern from sample description
   const pattern = extractIncomePattern(sampleDescription);
-  log.debug("PATTERN", `Extracted pattern: "${pattern}" from "${sampleDescription.substring(0, 40)}..."`);
 
   // Create pattern if doesn't exist
   const existingPattern = await db.incomePattern.findUnique({
@@ -268,9 +261,7 @@ export async function createIncomeWithPattern(
         priority: options?.priority || 10,
       },
     });
-    log.info("PATTERN", `Created new pattern: "${pattern}" for ${incomeName}`);
-  } else {
-    log.debug("PATTERN", `Pattern already exists: "${pattern}"`);
+    log.info("PATTERN", `"${pattern}" -> ${incomeName}`);
   }
 
   return {

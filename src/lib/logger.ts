@@ -7,9 +7,69 @@
  * - "warn"  - warn, error
  * - "error" - errors only
  * - "none"  - disable all logs (except forced)
+ *
+ * Set LOG_FILE env variable to also write logs to a file:
+ * - e.g., LOG_FILE=dev.log
  */
 
+import * as fs from "fs";
+import * as path from "path";
+
 const isDev = process.env.NODE_ENV === "development";
+const logFilePath = process.env.LOG_FILE
+  ? path.isAbsolute(process.env.LOG_FILE)
+    ? process.env.LOG_FILE
+    : path.resolve(process.cwd(), process.env.LOG_FILE)
+  : null;
+
+// Helper to format args for file output
+function formatArgs(args: unknown[]): string {
+  return args
+    .map((arg) =>
+      typeof arg === "string" ? arg : JSON.stringify(arg, null, 2)
+    )
+    .join(" ");
+}
+
+// Initialize log file and intercept console output
+if (logFilePath) {
+  try {
+    // Clear log file on app start (writeFileSync overwrites)
+    const header = `${"=".repeat(60)}\nLog started: ${new Date().toISOString()}\nLog file: ${logFilePath}\n${"=".repeat(60)}\n`;
+    fs.writeFileSync(logFilePath, header);
+
+    // Store original console methods
+    const originalLog = console.log;
+    const originalInfo = console.info;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    // Override console methods to also write to file
+    console.log = (...args: unknown[]) => {
+      originalLog.apply(console, args);
+      fs.appendFileSync(logFilePath, formatArgs(args) + "\n");
+    };
+
+    console.info = (...args: unknown[]) => {
+      originalInfo.apply(console, args);
+      fs.appendFileSync(logFilePath, formatArgs(args) + "\n");
+    };
+
+    console.warn = (...args: unknown[]) => {
+      originalWarn.apply(console, args);
+      fs.appendFileSync(logFilePath, `[WARN] ${formatArgs(args)}\n`);
+    };
+
+    console.error = (...args: unknown[]) => {
+      originalError.apply(console, args);
+      fs.appendFileSync(logFilePath, `[ERROR] ${formatArgs(args)}\n`);
+    };
+
+    console.log(`[Logger] Writing to: ${logFilePath}`);
+  } catch (err) {
+    console.error(`[Logger] Failed to initialize log file: ${err}`);
+  }
+}
 
 type LogLevel = "debug" | "info" | "warn" | "error" | "none";
 
@@ -53,7 +113,8 @@ export function createLogger(context: string) {
   return {
     debug(step: string, message: string, options?: LogOptions) {
       if (!shouldLog("debug", options?.force)) return;
-      console.log(formatMessage(context, step, message));
+      const formatted = formatMessage(context, step, message);
+      console.log(formatted);
       if (options?.data !== undefined) {
         console.log(`[${context}] Data:`, JSON.stringify(options.data, null, 2));
       }
@@ -61,7 +122,8 @@ export function createLogger(context: string) {
 
     info(step: string, message: string, options?: LogOptions) {
       if (!shouldLog("info", options?.force)) return;
-      console.info(formatMessage(context, step, message));
+      const formatted = formatMessage(context, step, message);
+      console.info(formatted);
       if (options?.data !== undefined) {
         console.info(`[${context}] Data:`, JSON.stringify(options.data, null, 2));
       }
@@ -69,7 +131,8 @@ export function createLogger(context: string) {
 
     warn(step: string, message: string, options?: LogOptions) {
       if (!shouldLog("warn", options?.force)) return;
-      console.warn(formatMessage(context, step, message));
+      const formatted = formatMessage(context, step, message);
+      console.warn(formatted);
       if (options?.data !== undefined) {
         console.warn(`[${context}] Data:`, JSON.stringify(options.data, null, 2));
       }
@@ -77,7 +140,8 @@ export function createLogger(context: string) {
 
     error(step: string, message: string, options?: LogOptions) {
       if (!shouldLog("error", options?.force)) return;
-      console.error(formatMessage(context, step, message));
+      const formatted = formatMessage(context, step, message);
+      console.error(formatted);
       if (options?.data !== undefined) {
         console.error(`[${context}] Data:`, JSON.stringify(options.data, null, 2));
       }
@@ -87,10 +151,12 @@ export function createLogger(context: string) {
     time(step: string, message: string) {
       if (!shouldLog("debug")) return () => {};
       const start = Date.now();
-      console.log(formatMessage(context, step, `${message} (started)`));
+      const startFormatted = formatMessage(context, step, `${message} (started)`);
+      console.log(startFormatted);
       return (endMessage?: string) => {
         const duration = ((Date.now() - start) / 1000).toFixed(1);
-        console.log(formatMessage(context, step, `${endMessage || message} (${duration}s)`));
+        const endFormatted = formatMessage(context, step, `${endMessage || message} (${duration}s)`);
+        console.log(endFormatted);
       };
     },
   };
@@ -100,3 +166,4 @@ export function createLogger(context: string) {
 export const aiLogger = createLogger("AI Resolve");
 export const importLogger = createLogger("Import");
 export const resolverLogger = createLogger("Resolver");
+export const pdfExtractLogger = createLogger("PDF Extract");
