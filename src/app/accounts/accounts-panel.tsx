@@ -13,8 +13,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { AccountDialog, AccountEditButton } from "./account-dialog";
 import { toggleAccountStatus, deleteAccount, enableAllAccounts, disableAllAccounts } from "./actions";
+import { formatCompactCurrency } from "@/lib/format";
 import { toast } from "sonner";
 import { Trash2, X, Power, PowerOff } from "lucide-react";
+import type { AccountStat } from "./page";
 
 function getTypeBadge(type: string) {
   const styles: Record<string, string> = {
@@ -36,6 +38,12 @@ function getTypeBadge(type: string) {
       {type}
     </span>
   );
+}
+
+function getProgressColor(pct: number): { bar: string; text: string } {
+  if (pct >= 90) return { bar: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" };
+  if (pct >= 75) return { bar: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" };
+  return { bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" };
 }
 
 interface Institution {
@@ -64,6 +72,7 @@ interface Account {
   creditLimit: number | null;
   interestRate: number | null;
   billingCycleDay: number | null;
+  monthlyLimit: number | null;
   isJoint: boolean;
   ownerId: number | null;
   owner: Person | null;
@@ -74,9 +83,10 @@ interface Account {
 interface AccountsPanelProps {
   accounts: Account[];
   persons: Person[];
+  accountStats: Record<number, AccountStat>;
 }
 
-export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
+export function AccountsPanel({ accounts, persons, accountStats }: AccountsPanelProps) {
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
   const [bulkPending, setBulkPending] = useState(false);
@@ -210,105 +220,130 @@ export function AccountsPanel({ accounts, persons }: AccountsPanelProps) {
                   </TableRow>
                 </TableHeader>
               <TableBody>
-                {filteredAccounts.map((account) => (
-                  <TableRow key={account.id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{account.name}</span>
-                        {account.nickname && (
-                          <span className="text-xs text-muted-foreground">
-                            {account.nickname}
-                          </span>
-                        )}
-                        {account.number && (
-                          <span className="text-xs text-muted-foreground">
-                            ****{account.number}
-                          </span>
-                        )}
-                        {(account.creditLimit || account.interestRate || account.billingCycleDay) && (
-                          <span className="text-xs text-muted-foreground">
-                            {[
-                              account.creditLimit && `Limit: $${account.creditLimit.toLocaleString()}`,
-                              account.interestRate && `${account.interestRate}%`,
-                              account.billingCycleDay && `Day ${account.billingCycleDay}`,
-                            ].filter(Boolean).join(" · ")}
-                          </span>
-                        )}
-                        {account.notes && (
-                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                            {account.notes}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {account.institution ? (
+                {filteredAccounts.map((account) => {
+                  const stat = accountStats[account.id];
+                  const spent = Math.abs(stat?.monthAmount ?? 0);
+                  const limit = account.monthlyLimit;
+                  const hasSpendingBar = limit && limit > 0;
+                  const pct = hasSpendingBar ? Math.min(100, (spent / limit) * 100) : 0;
+                  const colors = hasSpendingBar ? getProgressColor(pct) : null;
+
+                  return (
+                    <TableRow key={account.id}>
+                      <TableCell>
                         <div className="flex flex-col">
-                          <span>{account.institution.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {account.institution.type}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {getTypeBadge(account.type)}
-                        {account.isJoint && (
-                          <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                            Joint
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {account.owner ? (
-                        <div className="flex flex-col">
-                          <span>{account.owner.name}</span>
-                          {account.owner.email && (
+                          <span className="font-medium">{account.name}</span>
+                          {account.nickname && (
                             <span className="text-xs text-muted-foreground">
-                              {account.owner.email}
+                              {account.nickname}
+                            </span>
+                          )}
+                          {account.number && (
+                            <span className="text-xs text-muted-foreground">
+                              ****{account.number}
+                            </span>
+                          )}
+                          {(account.creditLimit || account.interestRate || account.billingCycleDay) && (
+                            <span className="text-xs text-muted-foreground">
+                              {[
+                                account.creditLimit && `Limit: $${account.creditLimit.toLocaleString()}`,
+                                account.interestRate && `${account.interestRate}%`,
+                                account.billingCycleDay && `Day ${account.billingCycleDay}`,
+                              ].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                          {hasSpendingBar && (
+                            <div className="mt-1 space-y-0.5">
+                              <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${colors!.bar}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-medium ${colors!.text}`}>
+                                {formatCompactCurrency(spent)} / {formatCompactCurrency(limit)}
+                                <span className="text-muted-foreground font-normal ml-1">
+                                  ({pct.toFixed(0)}%)
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                          {account.notes && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                              {account.notes}
                             </span>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <button
-                        onClick={() => handleToggleStatus(account)}
-                        disabled={pendingIds.has(account.id)}
-                        className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                          account.isActive
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800"
-                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                        } ${pendingIds.has(account.id) ? "opacity-50" : ""}`}
-                      >
-                        {account.isActive ? "Active" : "Inactive"}
-                      </button>
-                    </TableCell>
-                    <TableCell className="p-0">
-                      <div className="flex items-center justify-center gap-1">
-                        <AccountEditButton
-                          account={account}
-                          persons={persons}
-                        />
+                      </TableCell>
+                      <TableCell>
+                        {account.institution ? (
+                          <div className="flex flex-col">
+                            <span>{account.institution.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {account.institution.type}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {getTypeBadge(account.type)}
+                          {account.isJoint && (
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                              Joint
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {account.owner ? (
+                          <div className="flex flex-col">
+                            <span>{account.owner.name}</span>
+                            {account.owner.email && (
+                              <span className="text-xs text-muted-foreground">
+                                {account.owner.email}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
                         <button
-                          type="button"
-                          onClick={() => handleDelete(account)}
+                          onClick={() => handleToggleStatus(account)}
                           disabled={pendingIds.has(account.id)}
-                          className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
-                          title="Delete"
+                          className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                            account.isActive
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800"
+                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                          } ${pendingIds.has(account.id) ? "opacity-50" : ""}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          {account.isActive ? "Active" : "Inactive"}
                         </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="p-0">
+                        <div className="flex items-center justify-center gap-1">
+                          <AccountEditButton
+                            account={account}
+                            persons={persons}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(account)}
+                            disabled={pendingIds.has(account.id)}
+                            className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

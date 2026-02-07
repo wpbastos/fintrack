@@ -12,6 +12,7 @@ export { categories } from "./categories";
 export { merchants } from "./merchants";
 export { institutions } from "./institutions";
 export { employers } from "./employers";
+export { incomes } from "./incomes";
 export { documentSchemas } from "./document-schemas";
 
 // Individual document schemas (for direct access)

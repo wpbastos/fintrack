@@ -7,6 +7,7 @@ import { IncomePanel } from "./income-panel";
 import { PositionsPanel } from "./positions-panel";
 import { EmployersPanel } from "./employers-panel";
 import { StatusFilter } from "./status-filter";
+import type { IncomeStat } from "./page";
 
 interface CategoryGroup {
   id: number;
@@ -111,12 +112,13 @@ interface IncomeTabsProps {
   incomeSources: Income[];
   positions: PositionWithCount[];
   employers: EmployerWithCount[];
+  incomeStats: Record<number, IncomeStat>;
 }
 
 const tabs = [
   { id: "income", label: "Income", icon: Wallet },
-  { id: "positions", label: "Positions", icon: Briefcase },
   { id: "employers", label: "Employers", icon: Building2 },
+  { id: "positions", label: "Positions", icon: Briefcase },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -132,7 +134,7 @@ const FREQUENCY_MULTIPLIERS: Record<string, number> = {
   Irregular: 12,
 };
 
-export function IncomeTabs({ incomeSources, positions, employers }: IncomeTabsProps) {
+export function IncomeTabs({ incomeSources, positions, employers, incomeStats }: IncomeTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("income");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
 
@@ -276,7 +278,7 @@ export function IncomeTabs({ incomeSources, positions, employers }: IncomeTabsPr
 
       {/* Tab Content */}
       <div>
-        {activeTab === "income" && <IncomePanel incomeSources={filteredSources} />}
+        {activeTab === "income" && <IncomePanel incomeSources={filteredSources} incomeStats={incomeStats} />}
         {activeTab === "positions" && <PositionsPanel positions={filteredPositions} />}
         {activeTab === "employers" && <EmployersPanel employers={filteredEmployers} />}
       </div>

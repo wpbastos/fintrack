@@ -40,6 +40,21 @@ export interface Merchant {
   patterns: MerchantPattern[];
 }
 
+export interface IncomeSourcePattern {
+  pattern: string;
+  priority: number;
+  notes: string | null;
+}
+
+export interface IncomeSource {
+  incomeName: string;
+  incomeType: string;
+  categoryName: string;
+  payFrequency: string | null;
+  notes: string | null;
+  patterns: IncomeSourcePattern[];
+}
+
 export interface Institution {
   institutionName: string;
   institutionType: string;

@@ -40,9 +40,9 @@ export async function addPayslip(
       },
     });
 
-    // Check if this is a Salary category in Employment Income group
+    // Check if this is a Salary category in Earned Income group
     const isSalary =
-      income?.category?.group?.name === "Employment Income" &&
+      income?.category?.group?.name === "Earned Income" &&
       income?.category?.name === "Salary";
 
     // Calculate increase percentage

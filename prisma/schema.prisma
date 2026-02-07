@@ -230,6 +230,7 @@ model Account {
   creditLimit     Float?       @map("credit_limit")
   interestRate    Float?       @map("interest_rate")
   billingCycleDay Int?         @map("billing_cycle_day")
+  monthlyLimit    Float?       @map("monthly_limit")
   isJoint         Boolean      @default(false) @map("is_joint")
   ownerId         Int?         @map("owner_id")
   owner           Person?      @relation(fields: [ownerId], references: [id])

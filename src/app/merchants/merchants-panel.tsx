@@ -1,20 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MerchantDialog } from "./components/merchant-dialog";
 import { MerchantsTable } from "./components/merchants-table";
 import { SearchInput } from "./components/search-input";
 import { BulkActions } from "./components/bulk-actions";
 import { toggleMerchantStatus, deleteMerchant } from "./actions";
 import { toast } from "sonner";
-import type { MerchantWithStatus } from "./types";
+import type { MerchantWithStatus, MerchantStat } from "./types";
 
 interface MerchantsPanelProps {
   merchants: MerchantWithStatus[];
+  merchantStats: Record<number, MerchantStat>;
 }
 
-export function MerchantsPanel({ merchants }: MerchantsPanelProps) {
+export function MerchantsPanel({ merchants, merchantStats }: MerchantsPanelProps) {
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
 
@@ -70,33 +70,22 @@ export function MerchantsPanel({ merchants }: MerchantsPanelProps) {
           onChange={setSearch}
           placeholder="Search merchants..."
         />
+        <BulkActions />
         <MerchantDialog />
       </div>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Merchants</CardTitle>
-            <BulkActions />
-          </div>
-          <CardDescription>
-            Merchants and their matching patterns for transaction categorization.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredMerchants.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {search ? "No merchants match your search." : "No merchants found."}
-            </div>
-          ) : (
-            <MerchantsTable
-              merchants={filteredMerchants}
-              pendingIds={pendingIds}
-              onToggleStatus={handleToggleStatus}
-              onDelete={handleDelete}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {filteredMerchants.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {search ? "No merchants match your search." : "No merchants found."}
+        </div>
+      ) : (
+        <MerchantsTable
+          merchants={filteredMerchants}
+          merchantStats={merchantStats}
+          pendingIds={pendingIds}
+          onToggleStatus={handleToggleStatus}
+          onDelete={handleDelete}
+        />
+      )}
     </div>
   );
 }

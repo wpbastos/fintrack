@@ -17,6 +17,7 @@ import {
   documentSchemas,
 } from "./seed-data";
 import { employers } from "./seed-data/employers";
+import { incomes } from "./seed-data/incomes";
 
 const adapter = new PrismaBetterSqlite3({
   url: process.env.DATABASE_URL ?? "file:./dev.db",
@@ -206,27 +207,32 @@ async function main() {
   // =========================================================================
   console.log("Setting up category hierarchies...");
 
-  // Credit Card Payment children
-  const ccPaymentParent = await prisma.category.findUnique({
-    where: { name: "Credit Card Payment" },
-  });
+  // Reimbursement children — each insurer claim is a child of Reimbursement
+  const reimbursementChildren = [
+    "Manulife Claim",
+    "Sun Life Claim",
+    "Canada Life Claim",
+    "Desjardins Claim",
+    "iA Financial Claim",
+    "Blue Cross Claim",
+    "Green Shield Claim",
+    "Equitable Life Claim",
+    "Co-operators Claim",
+  ];
 
-  if (ccPaymentParent) {
-    const ccChildCategories = [
-      "Amex Payment",
-      "Triangle MC Payment",
-      "Walmart MC Payment",
-      "RBC Visa Payment",
-      "Other CC Payment",
-    ];
-
-    for (const childName of ccChildCategories) {
+  const reimbursementParent = await prisma.category.findUnique({ where: { name: "Reimbursement" } });
+  let reimbLinked = 0;
+  if (reimbursementParent) {
+    for (const childName of reimbursementChildren) {
       await prisma.category.update({
         where: { name: childName },
-        data: { parentId: ccPaymentParent.id },
+        data: { parentId: reimbursementParent.id },
       });
+      reimbLinked++;
     }
-    console.log(`  Linked ${ccChildCategories.length} CC payment subcategories`);
+  }
+  if (reimbLinked > 0) {
+    console.log(`  Linked ${reimbLinked} reimbursement subcategories`);
   }
 
   // =========================================================================
@@ -316,6 +322,69 @@ async function main() {
     employerCount++;
   }
   console.log(`  Employers: ${employerCount}`);
+
+  // =========================================================================
+  // Seed Income Sources and Patterns
+  // =========================================================================
+  console.log("\nSeeding Income Sources...");
+
+  let incomeCount = 0;
+  let incomePatternCount = 0;
+  let incomeLinkedCount = 0;
+
+  for (const incomeData of incomes) {
+    const incomeCategoryId = categoryMap.get(incomeData.categoryName) || null;
+    if (incomeCategoryId) {
+      incomeLinkedCount++;
+    } else if (incomeData.categoryName) {
+      console.log(`  Warning: Category "${incomeData.categoryName}" not found for income "${incomeData.incomeName}"`);
+    }
+
+    const income = await prisma.income.upsert({
+      where: { name: incomeData.incomeName },
+      update: {
+        type: incomeData.incomeType,
+        categoryId: incomeCategoryId,
+        payFrequency: incomeData.payFrequency,
+        notes: incomeData.notes,
+      },
+      create: {
+        name: incomeData.incomeName,
+        type: incomeData.incomeType,
+        categoryId: incomeCategoryId,
+        payFrequency: incomeData.payFrequency,
+        notes: incomeData.notes,
+        isActive: false,
+      },
+    });
+    incomeCount++;
+
+    for (const patternData of incomeData.patterns) {
+      try {
+        await prisma.incomePattern.upsert({
+          where: { pattern: patternData.pattern },
+          update: {
+            incomeId: income.id,
+            priority: patternData.priority,
+            notes: patternData.notes,
+          },
+          create: {
+            incomeId: income.id,
+            pattern: patternData.pattern,
+            priority: patternData.priority,
+            notes: patternData.notes,
+          },
+        });
+        incomePatternCount++;
+      } catch {
+        console.log(`  Pattern "${patternData.pattern}" already exists for different income`);
+      }
+    }
+  }
+
+  console.log(`  Income Sources: ${incomeCount}`);
+  console.log(`  Income Sources with categories: ${incomeLinkedCount}`);
+  console.log(`  Income Patterns: ${incomePatternCount}`);
 
   // =========================================================================
   // Seed Document Schemas

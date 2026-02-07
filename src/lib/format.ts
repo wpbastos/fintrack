@@ -89,6 +89,34 @@ export function formatPercent(
   });
 }
 
+/**
+ * Format currency in compact form for tight table cells
+ * >= 10000 → $12.3K, >= 1000 → $1,234, < 1000 → $123
+ */
+export function formatCompactCurrency(
+  amount: number,
+  options?: { currency?: string; locale?: string }
+): string {
+  const locale = options?.locale || CURRENCY_LOCALE;
+  const currency = options?.currency || CURRENCY_CODE;
+  const abs = Math.abs(amount);
+
+  if (abs >= 10000) {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(amount);
+  }
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 // Export format strings for components that need them
 export const formats = {
   date: DATE_FORMAT,

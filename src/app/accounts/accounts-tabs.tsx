@@ -7,6 +7,7 @@ import { InstitutionsPanel } from "./institutions-panel";
 import { PersonsPanel } from "./persons-panel";
 import { AccountsPanel } from "./accounts-panel";
 import { StatusFilter } from "./status-filter";
+import type { AccountStat } from "./page";
 
 interface Institution {
   id: number;
@@ -49,6 +50,7 @@ interface Account {
   creditLimit: number | null;
   interestRate: number | null;
   billingCycleDay: number | null;
+  monthlyLimit: number | null;
   isJoint: boolean;
   ownerId: number | null;
   owner: {
@@ -65,18 +67,21 @@ interface AccountsTabsProps {
   institutions: Institution[];
   persons: Person[];
   accounts: Account[];
+  accountStats: Record<number, AccountStat>;
 }
 
 const tabs = [
+  { id: "accounts", label: "Accounts", icon: CreditCard },
   { id: "institutions", label: "Institutions", icon: Building },
   { id: "persons", label: "Persons", icon: Users },
-  { id: "accounts", label: "Accounts", icon: CreditCard },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
-export function AccountsTabs({ institutions, persons, accounts }: AccountsTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabId>("institutions");
+const SPENDING_TYPES = ["Credit Card", "Line of Credit"];
+
+export function AccountsTabs({ institutions, persons, accounts, accountStats }: AccountsTabsProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("accounts");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
 
   // Convert persons for the accounts panel (simpler type)
@@ -88,10 +93,26 @@ export function AccountsTabs({ institutions, persons, accounts }: AccountsTabsPr
   }));
 
   // Calculate stats
-  const activeAccounts = accounts.filter((a) => a.isActive).length;
-  const totalCreditLimit = accounts
-    .filter((a) => a.isActive && a.creditLimit)
+  const activeAccounts = accounts.filter((a) => a.isActive);
+  const totalCreditLimit = activeAccounts
+    .filter((a) => a.creditLimit)
     .reduce((sum, a) => sum + (a.creditLimit ?? 0), 0);
+
+  // Month spending for CC/LOC accounts
+  const monthSpending = activeAccounts
+    .filter((a) => SPENDING_TYPES.includes(a.type))
+    .reduce((sum, a) => {
+      const stat = accountStats[a.id];
+      return sum + Math.abs(stat?.monthAmount ?? 0);
+    }, 0);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency: "CAD",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   // Filter data based on status
   const filteredInstitutions = institutions.filter((i) =>
@@ -107,37 +128,33 @@ export function AccountsTabs({ institutions, persons, accounts }: AccountsTabsPr
   return (
     <>
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Institutions</CardDescription>
-            <CardTitle className="text-2xl">{institutions.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Persons</CardDescription>
-            <CardTitle className="text-2xl">{persons.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Accounts</CardDescription>
-            <CardTitle className="text-2xl">{accounts.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Active Accounts</CardDescription>
-            <CardTitle className="text-2xl text-emerald-600">{activeAccounts}</CardTitle>
+            <CardDescription>Month Spending</CardDescription>
+            <CardTitle className="text-2xl text-amber-600">
+              {formatCurrency(monthSpending)}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Credit Limit</CardDescription>
             <CardTitle className="text-2xl text-violet-600">
-              ${totalCreditLimit.toLocaleString()}
+              {formatCurrency(totalCreditLimit)}
             </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Active Accounts</CardDescription>
+            <CardTitle className="text-2xl text-emerald-600">{activeAccounts.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Accounts</CardDescription>
+            <CardTitle className="text-2xl">{accounts.length}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -197,7 +214,7 @@ export function AccountsTabs({ institutions, persons, accounts }: AccountsTabsPr
           <PersonsPanel persons={filteredPersons} />
         )}
         {activeTab === "accounts" && (
-          <AccountsPanel accounts={filteredAccounts} persons={personsForAccounts} />
+          <AccountsPanel accounts={filteredAccounts} persons={personsForAccounts} accountStats={accountStats} />
         )}
       </div>
     </>

@@ -57,6 +57,7 @@ interface Account {
   creditLimit: number | null;
   interestRate: number | null;
   billingCycleDay: number | null;
+  monthlyLimit: number | null;
   isJoint: boolean;
   ownerId: number | null;
   owner: Person | null;
@@ -140,6 +141,7 @@ function AccountForm({
   const [billingCycleDay, setBillingCycleDay] = useState(
     account?.billingCycleDay?.toString() || ""
   );
+  const [monthlyLimit, setMonthlyLimit] = useState(account?.monthlyLimit?.toString() || "");
   const [isJoint, setIsJoint] = useState(account?.isJoint || false);
   const [ownerId, setOwnerId] = useState<number | null>(
     account?.ownerId || null
@@ -166,6 +168,7 @@ function AccountForm({
       creditLimit: creditLimit ? parseFloat(creditLimit) : undefined,
       interestRate: interestRate ? parseFloat(interestRate) : undefined,
       billingCycleDay: billingCycleDay ? parseInt(billingCycleDay) : undefined,
+      monthlyLimit: monthlyLimit ? parseFloat(monthlyLimit) : undefined,
       isJoint,
       ownerId: ownerId || undefined,
       notes: notes.trim() || undefined,
@@ -182,6 +185,7 @@ function AccountForm({
           creditLimit: data.creditLimit ?? null,
           interestRate: data.interestRate ?? null,
           billingCycleDay: data.billingCycleDay ?? null,
+          monthlyLimit: data.monthlyLimit ?? null,
           isJoint: data.isJoint,
           ownerId: data.ownerId ?? null,
           notes: data.notes ?? null,
@@ -292,46 +296,63 @@ function AccountForm({
 
             {/* Credit-specific fields */}
             {showCreditFields && (
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="credit-limit" className="text-sm font-medium">
-                    Credit Limit
-                  </label>
-                  <Input
-                    id="credit-limit"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={creditLimit}
-                    onChange={(e) => setCreditLimit(e.target.value)}
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="credit-limit" className="text-sm font-medium">
+                      Credit Limit
+                    </label>
+                    <Input
+                      id="credit-limit"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={creditLimit}
+                      onChange={(e) => setCreditLimit(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="interest-rate" className="text-sm font-medium">
+                      Interest Rate %
+                    </label>
+                    <Input
+                      id="interest-rate"
+                      type="number"
+                      step="0.01"
+                      placeholder="19.99"
+                      value={interestRate}
+                      onChange={(e) => setInterestRate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="billing-day" className="text-sm font-medium">
+                      Billing Day
+                    </label>
+                    <Input
+                      id="billing-day"
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="1-31"
+                      value={billingCycleDay}
+                      onChange={(e) => setBillingCycleDay(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="interest-rate" className="text-sm font-medium">
-                    Interest Rate %
-                  </label>
-                  <Input
-                    id="interest-rate"
-                    type="number"
-                    step="0.01"
-                    placeholder="19.99"
-                    value={interestRate}
-                    onChange={(e) => setInterestRate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="billing-day" className="text-sm font-medium">
-                    Billing Day
-                  </label>
-                  <Input
-                    id="billing-day"
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="1-31"
-                    value={billingCycleDay}
-                    onChange={(e) => setBillingCycleDay(e.target.value)}
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="monthly-limit" className="text-sm font-medium">
+                      Monthly Limit
+                    </label>
+                    <Input
+                      id="monthly-limit"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={monthlyLimit}
+                      onChange={(e) => setMonthlyLimit(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             )}

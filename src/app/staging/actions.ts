@@ -235,7 +235,7 @@ async function approveSuggestionInternal(transactionId: number): Promise<{ succe
               where: { id: suggestion.newEntity.categoryId },
               include: { group: true },
             });
-            isEmploymentIncome = category?.group?.name === "Employment Income";
+            isEmploymentIncome = category?.group?.name === "Earned Income";
           }
           let positionId: number | null = null;
           if (isEmploymentIncome && suggestion.newEntity.employerName) {
@@ -467,17 +467,17 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
           incomeId = incomeSource.id;
           categoryId = incomeSource.categoryId;
         } else {
-          // Check if category belongs to "Employment Income" group (only create employer for employment)
+          // Check if category belongs to "Earned Income" group (only create employer for employment)
           let isEmploymentIncome = false;
           if (suggestion.newEntity.categoryId) {
             const category = await db.category.findUnique({
               where: { id: suggestion.newEntity.categoryId },
               include: { group: true },
             });
-            isEmploymentIncome = category?.group?.name === "Employment Income";
+            isEmploymentIncome = category?.group?.name === "Earned Income";
           }
 
-          // Handle employer and position ONLY for Employment Income categories
+          // Handle employer and position ONLY for Earned Income categories
           let positionId: number | null = null;
 
           if (isEmploymentIncome && suggestion.newEntity.employerName) {
@@ -575,6 +575,14 @@ export async function approveSuggestion(transactionId: number): Promise<{ succes
         notes: null, // Clear the suggestion
       },
     });
+
+    // Auto-activate income if it was inactive
+    if (incomeId) {
+      await db.income.updateMany({
+        where: { id: incomeId, isActive: false },
+        data: { isActive: true },
+      });
+    }
 
     // Re-resolve ALL unresolved transactions across ALL batches
     // This catches transactions that now match the newly created/linked merchant/income
@@ -806,6 +814,15 @@ export async function importBatchTransactions(importId: number): Promise<{ succe
       importedCount++;
     }
 
+    // Auto-activate any inactive incomes that were linked to imported transactions
+    const incomeIds = [...new Set(matchedTransactions.map((s) => s.incomeId).filter((id): id is number => id !== null))];
+    if (incomeIds.length > 0) {
+      await db.income.updateMany({
+        where: { id: { in: incomeIds }, isActive: false },
+        data: { isActive: true },
+      });
+    }
+
     // Delete skipped transactions for this batch
     const skippedResult = await db.stagingTransaction.deleteMany({
       where: { status: "skipped", importId },
@@ -948,6 +965,14 @@ export async function updateStagingTransaction(
         notes: null, // Clear any AI suggestion notes
       },
     });
+
+    // Auto-activate income if it was inactive
+    if (data.incomeId) {
+      await db.income.updateMany({
+        where: { id: data.incomeId, isActive: false },
+        data: { isActive: true },
+      });
+    }
 
     revalidatePath("/staging");
     return { success: true };

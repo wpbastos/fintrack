@@ -46,3 +46,12 @@ export interface MerchantWithStatus extends Merchant {
   };
   patterns: Pattern[];
 }
+
+export interface MerchantStat {
+  totalCount: number;
+  totalAmount: number;
+  yearCount: number;
+  yearAmount: number;
+  monthCount: number;
+  monthAmount: number;
+}

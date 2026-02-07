@@ -10,10 +10,12 @@ import {
 } from "@/components/ui/table";
 import { MerchantEditButton } from "./merchant-edit-button";
 import { Trash2, ArrowRight } from "lucide-react";
-import type { MerchantWithStatus } from "../types";
+import type { MerchantWithStatus, MerchantStat } from "../types";
+import { formatCompactCurrency } from "@/lib/format";
 
 interface MerchantsTableProps {
   merchants: MerchantWithStatus[];
+  merchantStats: Record<number, MerchantStat>;
   pendingIds: Set<number>;
   onToggleStatus: (merchant: MerchantWithStatus) => void;
   onDelete: (merchant: MerchantWithStatus) => void;
@@ -21,6 +23,7 @@ interface MerchantsTableProps {
 
 export function MerchantsTable({
   merchants,
+  merchantStats,
   pendingIds,
   onToggleStatus,
   onDelete,
@@ -36,12 +39,12 @@ export function MerchantsTable({
           <col style={{ width: "8%" }} />
           <col style={{ width: "8%" }} />
         </colgroup>
-        <TableHeader>
+        <TableHeader className="bg-slate-50 dark:bg-slate-800/50">
           <TableRow>
             <TableHead>Merchant</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Patterns</TableHead>
-            <TableHead className="text-center">Transactions</TableHead>
+            <TableHead className="text-center">Total $</TableHead>
             <TableHead className="text-center">Status</TableHead>
             <TableHead className="p-0"></TableHead>
           </TableRow>
@@ -84,16 +87,12 @@ export function MerchantsTable({
               <TableCell>
                 {merchant.category ? (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
+                    className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
                     style={{
                       backgroundColor: `${merchant.category.color || merchant.category.group?.color || "#6366f1"}20`,
                       color: merchant.category.color || merchant.category.group?.color || "#6366f1",
                     }}
                   >
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: merchant.category.color || merchant.category.group?.color || "#6366f1" }}
-                    />
                     {merchant.category.name}
                   </span>
                 ) : (
@@ -119,8 +118,8 @@ export function MerchantsTable({
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <span className="text-muted-foreground">
-                  {merchant._count.transactions}
+                <span className="font-mono text-muted-foreground text-xs">
+                  {formatCompactCurrency(Math.abs(merchantStats[merchant.id]?.totalAmount ?? 0))}
                 </span>
               </TableCell>
               <TableCell className="text-center">

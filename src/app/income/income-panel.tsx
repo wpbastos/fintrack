@@ -16,6 +16,8 @@ import { IncomeHistoryDialog } from "./income-history-dialog";
 import { toggleIncomeStatus, deleteIncome } from "./actions";
 import { toast } from "sonner";
 import { Trash2, X } from "lucide-react";
+import { formatCompactCurrency } from "@/lib/format";
+import type { IncomeStat } from "./page";
 
 interface CategoryGroup {
   id: number;
@@ -87,6 +89,7 @@ interface Income {
 
 interface IncomePanelProps {
   incomeSources: Income[];
+  incomeStats: Record<number, IncomeStat>;
 }
 
 // Pay frequency multipliers for annual calculation
@@ -110,7 +113,7 @@ const FREQUENCY_STYLES: Record<string, string> = {
   Irregular: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
 };
 
-export function IncomePanel({ incomeSources }: IncomePanelProps) {
+export function IncomePanel({ incomeSources, incomeStats }: IncomePanelProps) {
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
 
@@ -211,6 +214,96 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
     return sources.reduce((sum, s) => sum + calculateMonthly(s.currentNet, s.payFrequency), 0);
   };
 
+  const calculateGroupActualMonth = (sources: Income[]): number => {
+    return sources.reduce((sum, s) => sum + (incomeStats[s.id]?.monthAmount ?? 0), 0);
+  };
+
+  const isEarnedIncome = (groupName: string) => groupName === "Earned Income";
+
+  // Shared cells
+  const renderSourceCell = (source: Income) => (
+    <TableCell>
+      <div className="flex flex-col">
+        {source.position?.employer.website ? (
+          <a
+            href={source.position.employer.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium hover:text-violet-600 hover:underline"
+          >
+            {source.name}
+          </a>
+        ) : (
+          <span className="font-medium">{source.name}</span>
+        )}
+        {source.position && (
+          <span className="text-xs text-muted-foreground truncate">
+            {source.position.title} @ {source.position.employer.name}
+          </span>
+        )}
+      </div>
+    </TableCell>
+  );
+
+  const renderCategoryCell = (source: Income) => (
+    <TableCell>
+      {source.category ? (
+        <span
+          className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+          style={{
+            backgroundColor: `${source.category.color || source.category.group?.color || "#6366f1"}20`,
+            color: source.category.color || source.category.group?.color || "#6366f1",
+          }}
+        >
+          {source.category.name}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      )}
+    </TableCell>
+  );
+
+  const renderStatusCell = (source: Income) => (
+    <TableCell className="text-center">
+      <button
+        onClick={() => handleToggleStatus(source)}
+        disabled={pendingIds.has(source.id)}
+        className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+          source.isActive
+            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800"
+            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+        } ${pendingIds.has(source.id) ? "opacity-50" : ""}`}
+      >
+        {source.isActive ? "Active" : "Inactive"}
+      </button>
+    </TableCell>
+  );
+
+  const renderActionsCell = (source: Income, showHistory: boolean) => (
+    <TableCell className="p-0">
+      <div className="flex items-center justify-center gap-1">
+        {showHistory && (
+          <IncomeHistoryDialog
+            incomeId={source.id}
+            name={source.name}
+            currentGross={source.currentGross}
+            currentNet={source.currentNet}
+          />
+        )}
+        <IncomeEditButton income={source} />
+        <button
+          type="button"
+          onClick={() => handleDelete(source)}
+          disabled={pendingIds.has(source.id)}
+          className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
+          title="Delete"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </TableCell>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end gap-2">
@@ -245,7 +338,10 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
       ) : (
         <div className="space-y-4">
           {sortedGroups.map((group) => {
-            const monthlyTotal = calculateGroupMonthly(group.sources);
+            const earned = isEarnedIncome(group.groupName);
+            const monthlyTotal = earned
+              ? calculateGroupMonthly(group.sources)
+              : calculateGroupActualMonth(group.sources);
 
             return (
               <Card key={group.groupId}>
@@ -254,7 +350,10 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
                     <div>
                       <CardTitle className="text-lg">{group.groupName}</CardTitle>
                       <CardDescription>
-                        {formatCurrency(monthlyTotal)}/mo · {group.sources.length} source{group.sources.length !== 1 ? "s" : ""}
+                        {earned
+                          ? `${formatCurrency(monthlyTotal)}/mo · ${group.sources.length} source${group.sources.length !== 1 ? "s" : ""}`
+                          : `${formatCompactCurrency(monthlyTotal)} this month · ${group.sources.length} source${group.sources.length !== 1 ? "s" : ""}`
+                        }
                       </CardDescription>
                     </div>
                   </div>
@@ -262,132 +361,132 @@ export function IncomePanel({ incomeSources }: IncomePanelProps) {
                 <CardContent>
                   <div className="rounded-md border">
                     <Table className="table-fixed w-full">
-                      <colgroup>
-                        <col style={{ width: "28%" }} />
-                        <col style={{ width: "12%" }} />
-                        <col style={{ width: "14%" }} />
-                        <col style={{ width: "14%" }} />
-                        <col style={{ width: "16%" }} />
-                        <col style={{ width: "8%" }} />
-                        <col style={{ width: "8%" }} />
-                      </colgroup>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Source</TableHead>
-                          <TableHead>Frequency</TableHead>
-                          <TableHead className="text-right">Net/Pay</TableHead>
-                          <TableHead className="text-right">Annual</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead className="text-center">Status</TableHead>
-                          <TableHead className="p-0"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {group.sources.map((source) => {
-                          const annualIncome = calculateAnnual(source.currentNet, source.payFrequency);
-
-                          return (
-                            <TableRow key={source.id}>
-                              <TableCell>
-                                <div className="flex flex-col">
-                                  {source.position?.employer.website ? (
-                                    <a
-                                      href={source.position.employer.website}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="font-medium hover:text-violet-600 hover:underline"
-                                    >
-                                      {source.name}
-                                    </a>
-                                  ) : (
-                                    <span className="font-medium">{source.name}</span>
-                                  )}
-                                  {source.position && (
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {source.position.title} @ {source.position.employer.name}
-                                    </span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {source.payFrequency ? (
-                                  <span
-                                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
-                                      FREQUENCY_STYLES[source.payFrequency] ?? FREQUENCY_STYLES.Irregular
-                                    }`}
-                                  >
-                                    {source.payFrequency}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="text-sm font-mono">
-                                  {formatCurrency(source.currentNet)}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="text-sm font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                                  {formatCurrency(annualIncome)}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                {source.category ? (
-                                  <span
-                                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
-                                    style={{
-                                      backgroundColor: `${source.category.color || source.category.group?.color || "#6366f1"}20`,
-                                      color: source.category.color || source.category.group?.color || "#6366f1",
-                                    }}
-                                  >
-                                    <span
-                                      className="w-2 h-2 rounded-full"
-                                      style={{ backgroundColor: source.category.color || source.category.group?.color || "#6366f1" }}
-                                    />
-                                    {source.category.name}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <button
-                                  onClick={() => handleToggleStatus(source)}
-                                  disabled={pendingIds.has(source.id)}
-                                  className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                                    source.isActive
-                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800"
-                                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                  } ${pendingIds.has(source.id) ? "opacity-50" : ""}`}
-                                >
-                                  {source.isActive ? "Active" : "Inactive"}
-                                </button>
-                              </TableCell>
-                              <TableCell className="p-0">
-                                <div className="flex items-center justify-center gap-1">
-                                  <IncomeHistoryDialog
-                                    incomeId={source.id}
-                                    name={source.name}
-                                    currentGross={source.currentGross}
-                                    currentNet={source.currentNet}
-                                  />
-                                  <IncomeEditButton income={source} />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(source)}
-                                    disabled={pendingIds.has(source.id)}
-                                    className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </TableCell>
+                      {earned ? (
+                        <>
+                          {/* Earned Income layout: Source, Frequency, Net/Pay, Annual, Category, Status, Actions */}
+                          <colgroup>
+                            <col style={{ width: "28%" }} />
+                            <col style={{ width: "12%" }} />
+                            <col style={{ width: "14%" }} />
+                            <col style={{ width: "14%" }} />
+                            <col style={{ width: "16%" }} />
+                            <col style={{ width: "8%" }} />
+                            <col style={{ width: "8%" }} />
+                          </colgroup>
+                          <TableHeader className="bg-slate-50 dark:bg-slate-800/50">
+                            <TableRow>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Frequency</TableHead>
+                              <TableHead className="text-right">Net/Pay</TableHead>
+                              <TableHead className="text-right">Annual</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                              <TableHead className="p-0"></TableHead>
                             </TableRow>
-                          );
-                        })}
-                      </TableBody>
+                          </TableHeader>
+                          <TableBody>
+                            {group.sources.map((source) => {
+                              const annualIncome = calculateAnnual(source.currentNet, source.payFrequency);
+                              return (
+                                <TableRow key={source.id}>
+                                  {renderSourceCell(source)}
+                                  <TableCell>
+                                    {source.payFrequency ? (
+                                      <span
+                                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                                          FREQUENCY_STYLES[source.payFrequency] ?? FREQUENCY_STYLES.Irregular
+                                        }`}
+                                      >
+                                        {source.payFrequency}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span className="text-sm font-mono">
+                                      {formatCurrency(source.currentNet)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span className="text-sm font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                                      {formatCurrency(annualIncome)}
+                                    </span>
+                                  </TableCell>
+                                  {renderCategoryCell(source)}
+                                  {renderStatusCell(source)}
+                                  {renderActionsCell(source, true)}
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </>
+                      ) : (
+                        <>
+                          {/* Other Income layout: Source, Category, Patterns, Month $, Year $, Status, Actions */}
+                          <colgroup>
+                            <col style={{ width: "28%" }} />
+                            <col style={{ width: "16%" }} />
+                            <col style={{ width: "20%" }} />
+                            <col style={{ width: "12%" }} />
+                            <col style={{ width: "12%" }} />
+                            <col style={{ width: "6%" }} />
+                            <col style={{ width: "6%" }} />
+                          </colgroup>
+                          <TableHeader className="bg-slate-50 dark:bg-slate-800/50">
+                            <TableRow>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Patterns</TableHead>
+                              <TableHead className="text-right">Month</TableHead>
+                              <TableHead className="text-right">Year</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                              <TableHead className="p-0"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {group.sources.map((source) => {
+                              const stat = incomeStats[source.id];
+                              return (
+                                <TableRow key={source.id}>
+                                  {renderSourceCell(source)}
+                                  {renderCategoryCell(source)}
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {source.patterns.slice(0, 2).map((p) => (
+                                        <code
+                                          key={p.id}
+                                          className="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded truncate max-w-[100px]"
+                                          title={p.pattern}
+                                        >
+                                          {p.pattern}
+                                        </code>
+                                      ))}
+                                      {source.patterns.length > 2 && (
+                                        <span className="text-xs text-muted-foreground">
+                                          +{source.patterns.length - 2}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span className="text-sm font-mono text-emerald-600 dark:text-emerald-400">
+                                      {formatCompactCurrency(stat?.monthAmount ?? 0)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span className="text-sm font-mono text-muted-foreground">
+                                      {formatCompactCurrency(stat?.yearAmount ?? 0)}
+                                    </span>
+                                  </TableCell>
+                                  {renderStatusCell(source)}
+                                  {renderActionsCell(source, false)}
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </>
+                      )}
                     </Table>
                   </div>
                 </CardContent>

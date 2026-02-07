@@ -22,6 +22,16 @@ import { GroupActions } from "./group-actions";
 import { AddCategoryDialog } from "./add-category-dialog";
 import { AddGroupDialog } from "./add-group-dialog";
 import { X } from "lucide-react";
+import { formatCompactCurrency } from "@/lib/format";
+
+interface CategoryStat {
+  totalCount: number;
+  totalAmount: number;
+  yearCount: number;
+  yearAmount: number;
+  monthCount: number;
+  monthAmount: number;
+}
 
 interface Category {
   id: number;
@@ -46,7 +56,7 @@ interface CategoryGroup {
 interface CategoriesPanelProps {
   groups: CategoryGroup[];
   allGroups: CategoryGroup[];
-  categoryStats: Record<number, { monthCount: number; totalCount: number }>;
+  categoryStats: Record<number, CategoryStat>;
   budgetStats: Record<number, { spentThisMonth: number }>;
 }
 
@@ -64,7 +74,6 @@ function getTypeBadge(type: string) {
   );
 }
 
-// Calculate budget: if has children, sum children's budgets; otherwise use own budget
 function getEffectiveBudget(category: Category): number | null {
   if (category.children && category.children.length > 0) {
     const childBudgets = category.children
@@ -76,7 +85,6 @@ function getEffectiveBudget(category: Category): number | null {
   return category.monthlyBudget;
 }
 
-// Count all categories including children
 function countCategories(categories: Category[]): number {
   return categories.reduce((sum, cat) => {
     const childCount = cat.children?.length ?? 0;
@@ -84,17 +92,90 @@ function countCategories(categories: Category[]): number {
   }, 0);
 }
 
-// Sum budgets for a list of categories (using effective budget which accounts for children)
 function sumBudgets(categories: Category[]): number {
   return categories
     .filter((cat) => cat.isActive)
     .reduce((sum, cat) => sum + (getEffectiveBudget(cat) ?? 0), 0);
 }
 
+function sumGroupStats(
+  categories: Category[],
+  stats: Record<number, CategoryStat>
+): CategoryStat {
+  return categories.reduce((acc, cat) => {
+    const s = (cat.children && cat.children.length > 0)
+      ? cat.children.reduce((childAcc, child) => {
+          const cs = stats[child.id];
+          if (!cs) return childAcc;
+          return {
+            totalCount: childAcc.totalCount + cs.totalCount,
+            totalAmount: childAcc.totalAmount + cs.totalAmount,
+            yearCount: childAcc.yearCount + cs.yearCount,
+            yearAmount: childAcc.yearAmount + cs.yearAmount,
+            monthCount: childAcc.monthCount + cs.monthCount,
+            monthAmount: childAcc.monthAmount + cs.monthAmount,
+          };
+        }, { ...EMPTY_STAT })
+      : stats[cat.id] ?? { ...EMPTY_STAT };
+    return {
+      totalCount: acc.totalCount + s.totalCount,
+      totalAmount: acc.totalAmount + s.totalAmount,
+      yearCount: acc.yearCount + s.yearCount,
+      yearAmount: acc.yearAmount + s.yearAmount,
+      monthCount: acc.monthCount + s.monthCount,
+      monthAmount: acc.monthAmount + s.monthAmount,
+    };
+  }, { ...EMPTY_STAT });
+}
+
+const EMPTY_STAT: CategoryStat = {
+  totalCount: 0, totalAmount: 0,
+  yearCount: 0, yearAmount: 0,
+  monthCount: 0, monthAmount: 0,
+};
+
+function aggregateStats(
+  stats: Record<number, CategoryStat>,
+  category: Category
+): CategoryStat {
+  if (category.children && category.children.length > 0) {
+    return category.children.reduce((acc, child) => {
+      const s = stats[child.id];
+      if (!s) return acc;
+      return {
+        totalCount: acc.totalCount + s.totalCount,
+        totalAmount: acc.totalAmount + s.totalAmount,
+        yearCount: acc.yearCount + s.yearCount,
+        yearAmount: acc.yearAmount + s.yearAmount,
+        monthCount: acc.monthCount + s.monthCount,
+        monthAmount: acc.monthAmount + s.monthAmount,
+      };
+    }, { ...EMPTY_STAT });
+  }
+  return stats[category.id] ?? { ...EMPTY_STAT };
+}
+
+function StatCell({ count, amount }: { count: number; amount: number }) {
+  if (count === 0 && amount === 0) {
+    return (
+      <TableCell className="text-center">
+        <span className="text-xs text-muted-foreground">—</span>
+      </TableCell>
+    );
+  }
+  return (
+    <TableCell className="text-center">
+      <div className="flex flex-col items-center leading-tight">
+        <span className="text-xs font-medium">{formatCompactCurrency(Math.abs(amount))}</span>
+        <span className="text-xs text-muted-foreground">#{count}</span>
+      </div>
+    </TableCell>
+  );
+}
+
 export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats }: CategoriesPanelProps) {
   const [search, setSearch] = useState("");
 
-  // Filter categories based on search (status filtering is done in tabs)
   const filteredGroups = search
     ? groups.map((group) => ({
         ...group,
@@ -147,15 +228,15 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
       </div>
 
       {filteredGroups.map((group) => {
-        // Check if this group is truly empty (no categories in DB) vs just filtered out
         const originalGroup = allGroups.find((g) => g.id === group.id);
         const isTrulyEmpty = (originalGroup?.categories.length ?? 0) === 0;
         const hasFilteredCategories = group.categories.length > 0;
 
-        // Skip groups that have categories but they're all filtered out
         if (!isTrulyEmpty && !hasFilteredCategories) return null;
 
         const groupBudget = sumBudgets(group.categories);
+        const isIncome = group.type === "Income";
+        const groupStats = sumGroupStats(group.categories, categoryStats);
 
         return (
           <Card key={group.id} className={isTrulyEmpty ? "opacity-60" : ""}>
@@ -175,11 +256,22 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
               </div>
               <CardDescription className="flex items-center justify-between">
                 <span>{countCategories(group.categories)} categories{group.notes && ` · ${group.notes}`}</span>
-                {group.type !== "Income" && groupBudget > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 dark:bg-violet-900/50 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
-                    Budget: ${groupBudget.toLocaleString()}
+                <div className="flex items-center gap-2">
+                  {!isIncome && groupBudget > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 dark:bg-violet-900/50 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                      Budget: ${groupBudget.toLocaleString()}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Month: {formatCompactCurrency(Math.abs(groupStats.monthAmount))}
                   </span>
-                )}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Year: {formatCompactCurrency(Math.abs(groupStats.yearAmount))}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Total: {formatCompactCurrency(Math.abs(groupStats.totalAmount))}
+                  </span>
+                </div>
               </CardDescription>
             </CardHeader>
             {isTrulyEmpty ? (
@@ -189,23 +281,48 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
             ) : (
             <CardContent>
               <div className="rounded-md border overflow-visible">
-                <Table className="table-fixed">
-                  <TableHeader>
+                <Table className="table-fixed w-full">
+                  <colgroup>{isIncome ? (
+                      <>
+                        <col style={{ width: "32%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "15%" }} />
+                        <col style={{ width: "15%" }} />
+                        <col style={{ width: "15%" }} />
+                        <col style={{ width: "5%" }} />
+                        <col style={{ width: "8%" }} />
+                      </>
+                    ) : (
+                      <>
+                        <col style={{ width: "27%" }} />
+                        <col style={{ width: "9%" }} />
+                        <col style={{ width: "12%" }} />
+                        <col style={{ width: "13%" }} />
+                        <col style={{ width: "13%" }} />
+                        <col style={{ width: "13%" }} />
+                        <col style={{ width: "5%" }} />
+                        <col style={{ width: "8%" }} />
+                      </>
+                    )}</colgroup>
+                  <TableHeader className="bg-slate-50 dark:bg-slate-800/50">
                     <TableRow>
                       <TableHead>Category</TableHead>
-                      {group.type !== "Income" && (
-                        <TableHead className="w-[14%] text-right pr-4">Budget</TableHead>
+                      <TableHead>Necessity</TableHead>
+                      {!isIncome && (
+                        <TableHead className="text-right pr-4">Budget</TableHead>
                       )}
-                      <TableHead className="w-[10%]">Necessity</TableHead>
-                      <TableHead className="w-[12%] text-center">Transactions</TableHead>
-                      <TableHead className="w-16">Status</TableHead>
-                      <TableHead className="w-28 p-0"></TableHead>
+                      <TableHead className="text-center">Month</TableHead>
+                      <TableHead className="text-center">Year</TableHead>
+                      <TableHead className="text-center">Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="p-0"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {group.categories.map((category) => {
                       const hasChildren = (category.children?.length ?? 0) > 0;
                       const effectiveBudget = getEffectiveBudget(category);
+                      const stats = aggregateStats(categoryStats, category);
 
                       return (
                         <Fragment key={category.id}>
@@ -213,24 +330,20 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                           <TableRow>
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                {category.color && (
-                                  <div
-                                    className="w-3 h-3 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: category.color }}
-                                  />
-                                )}
                                 <div className="flex flex-col">
                                   <span className="font-medium">{category.name}</span>
                                   <NotesCell notes={category.notes} />
                                 </div>
                               </div>
                             </TableCell>
-                            {group.type !== "Income" && (
+                            <TableCell>
+                              <NecessityCell value={category.necessityLevel} />
+                            </TableCell>
+                            {!isIncome && (
                               <TableCell>
                                 {hasChildren ? (
                                   <div className="text-right pr-2 text-sm">
                                     {(() => {
-                                      // Sum only children's spent (not parent)
                                       const totalSpent = category.children?.reduce((s, c) => s + (budgetStats[c.id]?.spentThisMonth ?? 0), 0) ?? 0;
                                       if (!effectiveBudget) return <span className="text-muted-foreground">—</span>;
                                       const isOver = totalSpent > effectiveBudget;
@@ -263,32 +376,9 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                                 )}
                               </TableCell>
                             )}
-                            <TableCell>
-                              <NecessityCell value={category.necessityLevel} />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {(() => {
-                                // If has children, sum only children stats; otherwise use parent stats
-                                if (hasChildren) {
-                                  const childStats = category.children?.map((c) => categoryStats[c.id]).filter(Boolean) ?? [];
-                                  const monthCount = childStats.reduce((s, c) => s + (c?.monthCount ?? 0), 0);
-                                  const totalCount = childStats.reduce((s, c) => s + (c?.totalCount ?? 0), 0);
-                                  return (
-                                    <span className="text-xs">
-                                      <span className="font-medium">{monthCount}</span>
-                                      <span className="text-muted-foreground"> / {totalCount}</span>
-                                    </span>
-                                  );
-                                }
-                                const stats = categoryStats[category.id];
-                                return (
-                                  <span className="text-xs">
-                                    <span className="font-medium">{stats?.monthCount ?? 0}</span>
-                                    <span className="text-muted-foreground"> / {stats?.totalCount ?? 0}</span>
-                                  </span>
-                                );
-                              })()}
-                            </TableCell>
+                            <StatCell count={stats.monthCount} amount={stats.monthAmount} />
+                            <StatCell count={stats.yearCount} amount={stats.yearAmount} />
+                            <StatCell count={stats.totalCount} amount={stats.totalAmount} />
                             <TableCell>
                               <StatusToggle
                                 categoryId={category.id}
@@ -296,7 +386,7 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                               />
                             </TableCell>
                             <TableCell className="p-0 pr-1">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center justify-end gap-1">
                                 <CategoryActions
                                   categoryId={category.id}
                                   categoryName={category.name}
@@ -304,7 +394,7 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                                   color={category.color}
                                   notes={category.notes}
                                   hasChildren={hasChildren}
-                                  isIncome={group.type === "Income"}
+                                  isIncome={isIncome}
                                 />
                                 <AddChildButton
                                   parentId={category.id}
@@ -316,18 +406,12 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
 
                           {/* Child rows */}
                           {category.children?.map((child) => {
-                            const childTxnStats = categoryStats[child.id];
+                            const childStats = categoryStats[child.id] ?? EMPTY_STAT;
                             const childBudgetSpent = budgetStats[child.id]?.spentThisMonth ?? 0;
                             return (
                               <TableRow key={child.id} className="bg-slate-50 dark:bg-slate-900/50">
                                 <TableCell>
                                   <div className="flex items-center gap-2 pl-6">
-                                    {child.color && (
-                                      <div
-                                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                        style={{ backgroundColor: child.color }}
-                                      />
-                                    )}
                                     <div className="flex flex-col">
                                       <span className="text-sm">↳ {child.name}</span>
                                       <div className="pl-4">
@@ -336,7 +420,10 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                                     </div>
                                   </div>
                                 </TableCell>
-                                {group.type !== "Income" && (
+                                <TableCell>
+                                  <NecessityCell value={child.necessityLevel} />
+                                </TableCell>
+                                {!isIncome && (
                                   <TableCell>
                                     {child.monthlyBudget ? (
                                       <div className="text-right pr-2 text-sm">
@@ -352,15 +439,9 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                                     )}
                                   </TableCell>
                                 )}
-                                <TableCell>
-                                  <NecessityCell value={child.necessityLevel} />
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <span className="text-xs">
-                                    <span className="font-medium">{childTxnStats?.monthCount ?? 0}</span>
-                                    <span className="text-muted-foreground"> / {childTxnStats?.totalCount ?? 0}</span>
-                                  </span>
-                                </TableCell>
+                                <StatCell count={childStats.monthCount} amount={childStats.monthAmount} />
+                                <StatCell count={childStats.yearCount} amount={childStats.yearAmount} />
+                                <StatCell count={childStats.totalCount} amount={childStats.totalAmount} />
                                 <TableCell>
                                   <StatusToggle
                                     categoryId={child.id}
@@ -368,14 +449,16 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                                   />
                                 </TableCell>
                                 <TableCell className="p-0 pr-1">
-                                  <ChildActions
-                                    categoryId={child.id}
-                                    categoryName={child.name}
-                                    necessityLevel={child.necessityLevel}
-                                    color={child.color}
-                                    notes={child.notes}
-                                    isIncome={group.type === "Income"}
-                                  />
+                                  <div className="flex items-center justify-end gap-1">
+                                    <ChildActions
+                                      categoryId={child.id}
+                                      categoryName={child.name}
+                                      necessityLevel={child.necessityLevel}
+                                      color={child.color}
+                                      notes={child.notes}
+                                      isIncome={isIncome}
+                                    />
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );

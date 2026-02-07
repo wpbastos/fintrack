@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { calculateBillingPeriod } from "@/lib/billing-cycle";
 
 // Budget reset cron endpoint
 // Closes expired budget periods and opens new ones
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
         if (existingOpen) continue;
 
         // Calculate period dates
-        const { periodStart, periodEnd } = calculatePeriodDates(now);
+        const { periodStart, periodEnd } = calculateBillingPeriod(now, 1);
 
         // Check if period already exists (closed)
         const existingPeriod = await db.budgetPeriod.findFirst({
@@ -167,28 +168,3 @@ export async function GET() {
   });
 }
 
-// Helper to calculate period start/end dates
-// Uses 1st of month by default
-// TODO: Support account-specific billing cycle days
-function calculatePeriodDates(referenceDate: Date, billingCycleDay?: number) {
-  const day = billingCycleDay ?? 1;
-
-  let periodStart: Date;
-  let periodEnd: Date;
-
-  const currentDay = referenceDate.getDate();
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth();
-
-  if (currentDay >= day) {
-    // Current period started this month
-    periodStart = new Date(year, month, day, 0, 0, 0, 0);
-    periodEnd = new Date(year, month + 1, day - 1, 23, 59, 59, 999);
-  } else {
-    // Current period started last month
-    periodStart = new Date(year, month - 1, day, 0, 0, 0, 0);
-    periodEnd = new Date(year, month, day - 1, 23, 59, 59, 999);
-  }
-
-  return { periodStart, periodEnd };
-}

@@ -13,6 +13,7 @@ export async function createAccount(data: {
   creditLimit?: number;
   interestRate?: number;
   billingCycleDay?: number;
+  monthlyLimit?: number;
   isJoint?: boolean;
   ownerId?: number;
   notes?: string;
@@ -36,6 +37,7 @@ export async function createAccount(data: {
         creditLimit: data.creditLimit || null,
         interestRate: data.interestRate || null,
         billingCycleDay: data.billingCycleDay || null,
+        monthlyLimit: data.monthlyLimit || null,
         isJoint: data.isJoint || false,
         ownerId: data.ownerId || null,
         notes: data.notes || null,
@@ -64,6 +66,7 @@ export async function updateAccount(
     creditLimit?: number | null;
     interestRate?: number | null;
     billingCycleDay?: number | null;
+    monthlyLimit?: number | null;
     isJoint?: boolean;
     ownerId?: number | null;
     notes?: string | null;

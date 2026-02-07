@@ -25,15 +25,10 @@ const log = createLogger("Income");
 export async function resolveIncomeId(description: string): Promise<number | null> {
   if (!description) return null;
 
-  // Get all income patterns with their income sources
+  // Get all income patterns (including inactive — they auto-activate on first transaction)
   const patterns = await db.incomePattern.findMany({
     include: {
       income: true,
-    },
-    where: {
-      income: {
-        isActive: true,
-      },
     },
   });
 
@@ -76,11 +71,6 @@ export async function resolveIncome(description: string): Promise<{
   const patterns = await db.incomePattern.findMany({
     include: {
       income: true,
-    },
-    where: {
-      income: {
-        isActive: true,
-      },
     },
   });
 

@@ -19,8 +19,11 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Warehouse club",
       patterns: [
+        { pattern: "COSTCO WHOLESALE", priority: 15, notes: "In-store purchase" },
+        { pattern: "WWW COSTCO CA", priority: 15, notes: "Online purchase costco.ca" },
+        { pattern: "WWW.COSTCO.CA", priority: 15, notes: "Online purchase costco.ca" },
+        { pattern: "COSTCO.CA", priority: 15, notes: "Online purchase" },
         { pattern: "COSTCO", priority: 10, notes: null },
-        { pattern: "COSTCO WHOLESALE", priority: 15, notes: null },
       ],
     },
     {
@@ -33,10 +36,13 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Discount retailer",
       patterns: [
-        { pattern: "WALMART", priority: 10, notes: null },
+        { pattern: "WAL-MART #", priority: 15, notes: "Walmart with store number" },
+        { pattern: "WALMART SUPER", priority: 15, notes: "Walmart Supercenter" },
+        { pattern: "WM SUPERCENTER", priority: 15, notes: null },
         { pattern: "WAL-MART", priority: 10, notes: null },
-        { pattern: "WM SUPERCENTER", priority: 10, notes: null },
         { pattern: "WALMARTCA", priority: 10, notes: null },
+        { pattern: "WALMART.CA", priority: 10, notes: "Online purchase" },
+        { pattern: "WALMART", priority: 5, notes: "Low priority - also matches WALMART MC (CC payment)" },
       ],
     },
     {
@@ -195,8 +201,9 @@ export const merchants: Merchant[] = [
       notes: "Asian grocery - Loblaw Companies",
       patterns: [
         { pattern: "T&T SUPERMARKET", priority: 15, notes: null },
-        { pattern: "T&T", priority: 10, notes: null },
-        { pattern: "T & T", priority: 10, notes: null },
+        { pattern: "T & T SUPERMARKET", priority: 15, notes: null },
+        { pattern: "TNT SUPERMARKET", priority: 15, notes: null },
+        { pattern: "T&T ", priority: 10, notes: "T&T with trailing space" },
       ],
     },
     {
@@ -414,28 +421,29 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // GAS STATIONS - Category: Gas
+    // GAS STATIONS - Category: Fuel
     // ============================================================================
     {
       merchantName: "Petro-Canada",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.petro-canada.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Suncor Energy",
       patterns: [
-        { pattern: "PETRO-CANADA", priority: 10, notes: null },
-        { pattern: "PETRO CANADA", priority: 10, notes: null },
+        { pattern: "PETRO-CANADA", priority: 15, notes: "PETRO-CANADA XXXXX on CC statements" },
+        { pattern: "PETRO CANADA", priority: 15, notes: null },
         { pattern: "PETROCAN", priority: 10, notes: null },
         { pattern: "PETRO CAN", priority: 10, notes: null },
+        { pattern: "PETRO-CAN", priority: 10, notes: null },
       ],
     },
     {
       merchantName: "Esso",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.esso.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -450,7 +458,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Shell",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.shell.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -464,21 +472,24 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Canadian Tire Gas",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.canadiantire.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "CT money rewards",
       patterns: [
-        { pattern: "CANADIAN TIRE GAS", priority: 15, notes: null },
+        { pattern: "CDN TIRE GASBAR", priority: 20, notes: "CDN TIRE GASBAR #XXXXX on CC statements" },
+        { pattern: "CANADIAN TIRE GAS", priority: 20, notes: null },
+        { pattern: "CANADIAN TIRE GASBAR", priority: 20, notes: null },
+        { pattern: "CT GASBAR", priority: 15, notes: null },
         { pattern: "CT GAS", priority: 15, notes: null },
       ],
     },
     {
       merchantName: "Costco Gas",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.costco.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -492,7 +503,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Pioneer",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.pioneerpetroleums.com",
       hasAlternative: false,
       alternativeName: null,
@@ -506,7 +517,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Ultramar",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.ultramar.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -517,7 +528,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Husky",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.myhusky.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -531,7 +542,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Mobil",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.mobil.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -542,7 +553,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Co-op Gas",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.coopconnection.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -556,7 +567,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "7-Eleven Gas",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.7-eleven.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -571,7 +582,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Circle K",
       merchantType: "Gas",
-      categoryName: "Gas",
+      categoryName: "Fuel",
       website: "https://www.circlek.com",
       hasAlternative: false,
       alternativeName: null,
@@ -584,27 +595,28 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // COFFEE SHOPS - Category: Coffee Shops
+    // COFFEE SHOPS - Category: Eating Out
     // ============================================================================
     {
       merchantName: "Tim Hortons",
       merchantType: "Coffee",
-      categoryName: "Coffee Shops",
+      categoryName: "Eating Out",
       website: "https://www.timhortons.ca",
       hasAlternative: true,
       alternativeName: "Home coffee",
       alternativeSavings: 4,
       notes: "Restaurant Brands International",
       patterns: [
+        { pattern: "TIM HORTONS", priority: 15, notes: null },
         { pattern: "TIM HORTON", priority: 10, notes: null },
-        { pattern: "TIMS", priority: 10, notes: null },
-        { pattern: "TIM'S", priority: 10, notes: null },
+        { pattern: "TIMHORTONS", priority: 10, notes: null },
+        { pattern: "TIM HORTON'S", priority: 10, notes: null },
       ],
     },
     {
       merchantName: "Starbucks",
       merchantType: "Coffee",
-      categoryName: "Coffee Shops",
+      categoryName: "Eating Out",
       website: "https://www.starbucks.ca",
       hasAlternative: true,
       alternativeName: "Home coffee",
@@ -618,7 +630,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "M Square Coffee",
       merchantType: "Coffee",
-      categoryName: "Coffee Shops",
+      categoryName: "Eating Out",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -629,7 +641,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Second Cup",
       merchantType: "Coffee",
-      categoryName: "Coffee Shops",
+      categoryName: "Eating Out",
       website: "https://www.secondcup.com",
       hasAlternative: true,
       alternativeName: "Home coffee",
@@ -640,7 +652,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Bridgehead",
       merchantType: "Coffee",
-      categoryName: "Coffee Shops",
+      categoryName: "Eating Out",
       website: "https://www.bridgehead.ca",
       hasAlternative: true,
       alternativeName: "Home coffee",
@@ -650,27 +662,28 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // FAST FOOD - Category: Fast Food
+    // FAST FOOD - Category: Eating Out
     // ============================================================================
     {
       merchantName: "McDonalds",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.mcdonalds.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
       alternativeSavings: 10,
       notes: null,
       patterns: [
+        { pattern: "MCDONALDS", priority: 15, notes: null },
+        { pattern: "MCDONALD'S", priority: 15, notes: null },
         { pattern: "MCDONALD", priority: 10, notes: null },
         { pattern: "MCD'S", priority: 10, notes: null },
-        { pattern: "MCD", priority: 5, notes: null },
       ],
     },
     {
       merchantName: "Wendys",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.wendys.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -684,7 +697,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Burger King",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.burgerking.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -698,7 +711,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Subway",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.subway.ca",
       hasAlternative: true,
       alternativeName: "Pack lunch",
@@ -709,7 +722,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "A&W",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.aw.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -723,7 +736,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Pizza Pizza",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.pizzapizza.ca",
       hasAlternative: true,
       alternativeName: "Make pizza",
@@ -734,7 +747,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Popeyes",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.popeyes.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -748,7 +761,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Chipotle",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.chipotle.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -759,7 +772,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "KFC",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.kfc.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -773,7 +786,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Taco Bell",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.tacobell.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -784,7 +797,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Harvey's",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.harveys.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -798,7 +811,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Swiss Chalet",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.swisschalet.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -809,7 +822,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Mary Browns",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.marybrowns.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -823,7 +836,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Dairy Queen",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.dairyqueen.com/ca",
       hasAlternative: true,
       alternativeName: "Home desserts",
@@ -837,7 +850,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Five Guys",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.fiveguys.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -848,7 +861,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Pita Pit",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.pitapit.ca",
       hasAlternative: true,
       alternativeName: "Pack lunch",
@@ -859,7 +872,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Panera Bread",
       merchantType: "Fast Food",
-      categoryName: "Fast Food",
+      categoryName: "Eating Out",
       website: "https://www.panerabread.com",
       hasAlternative: true,
       alternativeName: "Pack lunch",
@@ -887,12 +900,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // FOOD DELIVERY - Category: Food Delivery
+    // FOOD DELIVERY - Category: Eating Out
     // ============================================================================
     {
       merchantName: "Skip The Dishes",
       merchantType: "Delivery",
-      categoryName: "Food Delivery",
+      categoryName: "Eating Out",
       website: "https://www.skipthedishes.com",
       hasAlternative: true,
       alternativeName: "Pick up",
@@ -908,7 +921,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "DoorDash",
       merchantType: "Delivery",
-      categoryName: "Food Delivery",
+      categoryName: "Eating Out",
       website: "https://www.doordash.com",
       hasAlternative: true,
       alternativeName: "Pick up",
@@ -922,7 +935,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Uber Eats",
       merchantType: "Delivery",
-      categoryName: "Food Delivery",
+      categoryName: "Eating Out",
       website: "https://www.ubereats.com",
       hasAlternative: true,
       alternativeName: "Pick up",
@@ -937,7 +950,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Instacart",
       merchantType: "Delivery",
-      categoryName: "Food Delivery",
+      categoryName: "Eating Out",
       website: "https://www.instacart.ca",
       hasAlternative: true,
       alternativeName: "Shop yourself",
@@ -948,7 +961,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Cornershop",
       merchantType: "Delivery",
-      categoryName: "Food Delivery",
+      categoryName: "Eating Out",
       website: "https://www.cornershopapp.com",
       hasAlternative: true,
       alternativeName: "Shop yourself",
@@ -958,43 +971,49 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // GENERAL RETAIL - Category: Household Items
+    // GENERAL RETAIL - Category: Household
     // ============================================================================
     {
       merchantName: "Canadian Tire",
       merchantType: "Retail",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.canadiantire.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Hardware, auto, home, sports",
       patterns: [
+        { pattern: "CDN TIRE STORE", priority: 20, notes: "CDN TIRE STORE #XXXXX on CC statements" },
+        { pattern: "CANADIAN TIRE STORE", priority: 20, notes: null },
+        { pattern: "CANADIAN TIRE #", priority: 15, notes: "Canadian Tire with store number" },
         { pattern: "CANADIAN TIRE", priority: 10, notes: null },
-        { pattern: "CDN TIRE", priority: 10, notes: null },
-        { pattern: "CTC ", priority: 10, notes: null },
+        { pattern: "CDN TIRE", priority: 10, notes: "Caution: also matches GASBAR and CC payment - lower priority" },
+        { pattern: "CTC STORE", priority: 15, notes: null },
       ],
     },
     {
       merchantName: "Amazon",
       merchantType: "Online",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.amazon.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Online marketplace",
       patterns: [
+        { pattern: "AMZN MKTP CA", priority: 25, notes: "Amazon Marketplace Canada" },
         { pattern: "AMZN MKTP", priority: 20, notes: "Amazon Marketplace" },
-        { pattern: "AMZN", priority: 15, notes: "Core identifier" },
+        { pattern: "AMAZON MKTP", priority: 20, notes: null },
         { pattern: "AMAZON.CA", priority: 15, notes: null },
-        { pattern: "AMAZON", priority: 10, notes: null },
+        { pattern: "AMZN.CA", priority: 15, notes: null },
+        { pattern: "AMZN", priority: 10, notes: "Core identifier - careful with AMZN PRIME" },
+        { pattern: "AMAZON", priority: 5, notes: "Low priority - also matches AMAZON PRIME" },
       ],
     },
     {
       merchantName: "Dollarama",
       merchantType: "Discount",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.dollarama.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1005,7 +1024,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Giant Tiger",
       merchantType: "Discount",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.gianttiger.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1019,7 +1038,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Home Depot",
       merchantType: "Hardware",
-      categoryName: "Home Improvement",
+      categoryName: "Home Maintenance",
       website: "https://www.homedepot.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1033,7 +1052,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Lowes",
       merchantType: "Hardware",
-      categoryName: "Home Improvement",
+      categoryName: "Home Maintenance",
       website: "https://www.lowes.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1047,7 +1066,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Rona",
       merchantType: "Hardware",
-      categoryName: "Home Improvement",
+      categoryName: "Home Maintenance",
       website: "https://www.rona.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1058,7 +1077,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Home Hardware",
       merchantType: "Hardware",
-      categoryName: "Home Improvement",
+      categoryName: "Home Maintenance",
       website: "https://www.homehardware.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1069,7 +1088,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "IKEA",
       merchantType: "Furniture",
-      categoryName: "Furniture",
+      categoryName: "Household",
       website: "https://www.ikea.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1108,7 +1127,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Staples",
       merchantType: "Office",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.staples.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1122,7 +1141,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Buck or Two",
       merchantType: "Discount",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -1133,7 +1152,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Dollar Choice",
       merchantType: "Discount",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -1144,7 +1163,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Dollar Tree",
       merchantType: "Discount",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.dollartree.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1170,7 +1189,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "HomeSense",
       merchantType: "Home",
-      categoryName: "Household Items",
+      categoryName: "Household",
       website: "https://www.homesense.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1309,7 +1328,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Carters",
       merchantType: "Clothing",
-      categoryName: "Kids Clothing",
+      categoryName: "Clothing",
       website: "https://www.carters.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1367,26 +1386,28 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // STREAMING & SUBSCRIPTIONS - Category: Streaming Services
+    // STREAMING & SUBSCRIPTIONS - Category: Streaming
     // ============================================================================
     {
       merchantName: "Netflix",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.netflix.com",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Video streaming",
       patterns: [
-        { pattern: "NFLX", priority: 15, notes: "Core identifier" },
+        { pattern: "NETFLIX.COM", priority: 15, notes: null },
         { pattern: "NETFLIX", priority: 10, notes: null },
+        { pattern: "NFLX DIGITAL", priority: 15, notes: "Netflix digital billing" },
+        { pattern: "NFLX", priority: 10, notes: "Core identifier" },
       ],
     },
     {
       merchantName: "Spotify",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.spotify.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1397,7 +1418,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Disney+",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.disneyplus.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1412,7 +1433,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Amazon Prime",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.amazon.ca/prime",
       hasAlternative: false,
       alternativeName: null,
@@ -1428,38 +1449,44 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Apple",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.apple.com",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "iCloud, Music, TV+, Arcade",
       patterns: [
-        { pattern: "APPLE.COM/BILL", priority: 15, notes: null },
+        { pattern: "APPLE.COM/BILL", priority: 20, notes: "Apple billing on CC statements" },
+        { pattern: "APPLE MUSIC", priority: 15, notes: null },
+        { pattern: "APPLE TV+", priority: 15, notes: null },
         { pattern: "APPLE.COM", priority: 10, notes: null },
+        { pattern: "ITUNES.COM", priority: 10, notes: null },
         { pattern: "ITUNES", priority: 10, notes: null },
-        { pattern: "APPLE MUSIC", priority: 10, notes: null },
       ],
     },
     {
       merchantName: "YouTube Premium",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.youtube.com/premium",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Google - includes YouTube Music",
       patterns: [
+        { pattern: "GOOGLE *YouTubePremium", priority: 20, notes: "Exact CC statement format" },
+        { pattern: "GOOGLE*YOUTUBEPREMIUM", priority: 20, notes: null },
+        { pattern: "GOOGLE *YOUTUBE", priority: 15, notes: "Google billing format" },
         { pattern: "GOOGLE* YOUTUBE", priority: 15, notes: "Google billing format" },
         { pattern: "YOUTUBE PREMIUM", priority: 15, notes: null },
-        { pattern: "YOUTUBE", priority: 10, notes: null },
+        { pattern: "YOUTUBE MUSIC", priority: 15, notes: null },
+        { pattern: "YOUTUBE", priority: 5, notes: "Low priority - common word" },
       ],
     },
     {
       merchantName: "Crave",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.crave.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1470,7 +1497,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Paramount+",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.paramountplus.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1484,7 +1511,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Max",
       merchantType: "Subscription",
-      categoryName: "Streaming Services",
+      categoryName: "Streaming",
       website: "https://www.max.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1497,12 +1524,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // GAMING - Category: Gaming
+    // GAMING - Category: Streaming
     // ============================================================================
     {
       merchantName: "Xbox",
       merchantType: "Subscription",
-      categoryName: "Gaming",
+      categoryName: "Streaming",
       website: "https://www.xbox.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1519,7 +1546,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "PlayStation",
       merchantType: "Subscription",
-      categoryName: "Gaming",
+      categoryName: "Streaming",
       website: "https://www.playstation.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1534,7 +1561,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Nintendo",
       merchantType: "Subscription",
-      categoryName: "Gaming",
+      categoryName: "Streaming",
       website: "https://www.nintendo.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1548,22 +1575,24 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Steam",
       merchantType: "Gaming",
-      categoryName: "Gaming",
+      categoryName: "Streaming",
       website: "https://store.steampowered.com",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Valve - PC gaming platform",
       patterns: [
-        { pattern: "STEAM", priority: 10, notes: null },
-        { pattern: "STEAMGAMES", priority: 10, notes: null },
-        { pattern: "STEAMPOWERED", priority: 10, notes: null },
+        { pattern: "STEAM PURCHASE", priority: 15, notes: "Steam on CC statements" },
+        { pattern: "STEAMPOWERED", priority: 15, notes: null },
+        { pattern: "STEAMGAMES", priority: 15, notes: null },
+        { pattern: "STEAM GAMES", priority: 15, notes: null },
+        { pattern: "STEAM", priority: 5, notes: "Low priority - common word" },
       ],
     },
     {
       merchantName: "Epic Games",
       merchantType: "Gaming",
-      categoryName: "Gaming",
+      categoryName: "Streaming",
       website: "https://www.epicgames.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1573,12 +1602,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // TELECOM - Category: Mobile Phone / Internet
+    // TELECOM - Category: Phone / Internet
     // ============================================================================
     {
       merchantName: "Rogers",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.rogers.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1593,7 +1622,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Bell",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.bell.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1608,7 +1637,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Telus",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.telus.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1623,7 +1652,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Fido",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.fido.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1637,7 +1666,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Koodo",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.koodomobile.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1651,7 +1680,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Virgin Plus",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.virginplus.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1666,7 +1695,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Freedom Mobile",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.freedommobile.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1680,7 +1709,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Public Mobile",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.publicmobile.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1691,7 +1720,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Lucky Mobile",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.luckymobile.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1702,7 +1731,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Chatr",
       merchantType: "Telecom",
-      categoryName: "Mobile Phone",
+      categoryName: "Phone",
       website: "https://www.chatrwireless.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1804,7 +1833,10 @@ export const merchants: Merchant[] = [
       alternativeName: null,
       alternativeSavings: null,
       notes: "London ON electricity",
-      patterns: [{ pattern: "LONDON HYDRO", priority: 10, notes: null }],
+      patterns: [
+        { pattern: "LONDON HYDRO INC", priority: 15, notes: "CC statement format" },
+        { pattern: "LONDON HYDRO", priority: 10, notes: null },
+      ],
     },
     {
       merchantName: "Enbridge",
@@ -1816,6 +1848,7 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Natural gas distribution",
       patterns: [
+        { pattern: "UTILITY BILL PMT ENBRIDGE", priority: 20, notes: "RBC chequing bill payment format" },
         { pattern: "ENBRIDGE GAS", priority: 15, notes: null },
         { pattern: "ENBRIDGE", priority: 10, notes: null },
       ],
@@ -1899,9 +1932,11 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Water heater, HVAC rental",
       patterns: [
-        { pattern: "RELIANCE HOME", priority: 15, notes: null },
-        { pattern: "RELIANCE", priority: 10, notes: null },
-        { pattern: "RELIANCECOMFORT", priority: 10, notes: null },
+        { pattern: "UTILITY BILL PMT RELIANCECOMFORT", priority: 20, notes: "RBC chequing bill payment format" },
+        { pattern: "RELIANCECOMFORT", priority: 15, notes: "RBC chequing format" },
+        { pattern: "RELIANCE HOME COMFORT", priority: 15, notes: null },
+        { pattern: "RELIANCE HOME", priority: 10, notes: null },
+        { pattern: "RELIANCE COMFORT", priority: 10, notes: null },
       ],
     },
     {
@@ -1917,12 +1952,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // TRANSIT - Category: Public Transit
+    // TRANSIT - Category: Transit
     // ============================================================================
     {
       merchantName: "TTC",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.ttc.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1936,7 +1971,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Presto",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.prestocard.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1947,7 +1982,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "GO Transit",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.gotransit.com",
       hasAlternative: false,
       alternativeName: null,
@@ -1961,7 +1996,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "TransLink",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.translink.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -1975,7 +2010,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "STM",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.stm.info",
       hasAlternative: false,
       alternativeName: null,
@@ -1989,7 +2024,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "OC Transpo",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.octranspo.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2000,7 +2035,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "LTC",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.londontransit.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2014,7 +2049,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Calgary Transit",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.calgarytransit.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2025,7 +2060,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Edmonton Transit",
       merchantType: "Transit",
-      categoryName: "Public Transit",
+      categoryName: "Transit",
       website: "https://www.edmonton.ca/ets",
       hasAlternative: false,
       alternativeName: null,
@@ -2038,12 +2073,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // TOLLS - Category: Tolls
+    // TOLLS - Category: Transit
     // ============================================================================
     {
       merchantName: "407 ETR",
       merchantType: "Toll",
-      categoryName: "Tolls",
+      categoryName: "Transit",
       website: "https://www.407etr.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2058,7 +2093,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "A25 Transurban",
       merchantType: "Toll",
-      categoryName: "Tolls",
+      categoryName: "Transit",
       website: "https://www.a25.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2068,12 +2103,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // RIDE SHARE - Category: Ride Share
+    // RIDE SHARE - Category: Transit
     // ============================================================================
     {
       merchantName: "Uber",
       merchantType: "Rideshare",
-      categoryName: "Ride Share",
+      categoryName: "Transit",
       website: "https://www.uber.com",
       hasAlternative: true,
       alternativeName: "Transit",
@@ -2089,7 +2124,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Lyft",
       merchantType: "Rideshare",
-      categoryName: "Ride Share",
+      categoryName: "Transit",
       website: "https://www.lyft.com",
       hasAlternative: true,
       alternativeName: "Transit",
@@ -2102,12 +2137,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // ENTERTAINMENT - Category: Movies & Events
+    // ENTERTAINMENT - Category: Entertainment
     // ============================================================================
     {
       merchantName: "Cineplex",
       merchantType: "Entertainment",
-      categoryName: "Movies & Events",
+      categoryName: "Entertainment",
       website: "https://www.cineplex.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2122,7 +2157,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Landmark Cinemas",
       merchantType: "Entertainment",
-      categoryName: "Movies & Events",
+      categoryName: "Entertainment",
       website: "https://www.landmarkcinemas.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2133,7 +2168,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Ticketmaster",
       merchantType: "Entertainment",
-      categoryName: "Movies & Events",
+      categoryName: "Entertainment",
       website: "https://www.ticketmaster.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2144,7 +2179,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "StubHub",
       merchantType: "Entertainment",
-      categoryName: "Movies & Events",
+      categoryName: "Entertainment",
       website: "https://www.stubhub.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2155,7 +2190,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Live Nation",
       merchantType: "Entertainment",
-      categoryName: "Movies & Events",
+      categoryName: "Entertainment",
       website: "https://www.livenation.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2165,12 +2200,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // FITNESS - Category: Gym
+    // FITNESS - Category: Fitness
     // ============================================================================
     {
       merchantName: "GoodLife Fitness",
       merchantType: "Fitness",
-      categoryName: "Gym",
+      categoryName: "Fitness",
       website: "https://www.goodlifefitness.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2185,21 +2220,24 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Planet Fitness",
       merchantType: "Fitness",
-      categoryName: "Gym",
+      categoryName: "Fitness",
       website: "https://www.planetfitness.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Budget gym franchise",
       patterns: [
-        { pattern: "PLANET FITNESS", priority: 10, notes: null },
+        { pattern: "FEES/DUES PF LONDON", priority: 20, notes: "RBC chequing format" },
+        { pattern: "PF LONDON NORTH", priority: 20, notes: "Planet Fitness London North" },
         { pattern: "PF LONDON", priority: 15, notes: "Planet Fitness London ON" },
+        { pattern: "PLANET FITNESS", priority: 10, notes: null },
+        { pattern: "PLT FITNESS", priority: 10, notes: "Abbreviated" },
       ],
     },
     {
       merchantName: "LA Fitness",
       merchantType: "Fitness",
-      categoryName: "Gym",
+      categoryName: "Fitness",
       website: "https://www.lafitness.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2210,7 +2248,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Anytime Fitness",
       merchantType: "Fitness",
-      categoryName: "Gym",
+      categoryName: "Fitness",
       website: "https://www.anytimefitness.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2221,7 +2259,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Fit4Less",
       merchantType: "Fitness",
-      categoryName: "Gym",
+      categoryName: "Fitness",
       website: "https://www.fit4less.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2232,7 +2270,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "YMCA",
       merchantType: "Fitness",
-      categoryName: "Gym",
+      categoryName: "Fitness",
       website: "https://www.ymca.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2243,7 +2281,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "London Aquatic",
       merchantType: "Fitness",
-      categoryName: "Sports & Recreation",
+      categoryName: "Entertainment",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2318,9 +2356,10 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Canadian insurance cooperative",
       patterns: [
-        { pattern: "COOPERATORS", priority: 10, notes: null },
+        { pattern: "INSURANCE COOPERATORS CSI", priority: 20, notes: "RBC chequing insurance payment" },
+        { pattern: "COOPERATORS CSI", priority: 15, notes: "Co-operators property insurance" },
         { pattern: "CO-OPERATORS", priority: 10, notes: null },
-        { pattern: "COOPERATIVE", priority: 5, notes: null },
+        { pattern: "COOPERATORS", priority: 10, notes: null },
       ],
     },
     {
@@ -2367,7 +2406,7 @@ export const merchants: Merchant[] = [
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
-      notes: "Life, health, group benefits",
+      notes: "Life, health, group benefits (premiums). Claims/reimbursements handled by income resolver.",
       patterns: [
         { pattern: "MANULIFE FINANCIAL", priority: 15, notes: null },
         { pattern: "MANULIFE", priority: 10, notes: null },
@@ -2381,7 +2420,7 @@ export const merchants: Merchant[] = [
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
-      notes: "Life, health, group benefits",
+      notes: "Life, health, group benefits (premiums). Claims/reimbursements handled by income resolver.",
       patterns: [
         { pattern: "SUN LIFE FINANCIAL", priority: 15, notes: null },
         { pattern: "SUNLIFE", priority: 10, notes: null },
@@ -2411,7 +2450,12 @@ export const merchants: Merchant[] = [
       alternativeName: null,
       alternativeSavings: null,
       notes: "Co-operators life insurance",
-      patterns: [{ pattern: "CO-OP LIFE", priority: 10, notes: null }],
+      patterns: [
+        { pattern: "LIFE INSURANCE CO-OP LIFE/VIE", priority: 20, notes: "RBC chequing format" },
+        { pattern: "CO-OP LIFE/VIE", priority: 15, notes: "Bilingual format on statements" },
+        { pattern: "CO-OP LIFE", priority: 10, notes: null },
+        { pattern: "COOP LIFE", priority: 10, notes: null },
+      ],
     },
     {
       merchantName: "Industrial Alliance",
@@ -2510,6 +2554,8 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Honda Financial Services",
       patterns: [
+        { pattern: "LOAN HONDA FINANCE", priority: 20, notes: "RBC chequing loan payment format" },
+        { pattern: "HONDA FINANCIAL SERVICES", priority: 15, notes: null },
         { pattern: "HONDA FINANCIAL", priority: 15, notes: null },
         { pattern: "HONDA FINANCE", priority: 10, notes: null },
       ],
@@ -2546,8 +2592,10 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "Canadian mortgage lender - acquired by Nesto 2024",
       patterns: [
+        { pattern: "RESIDENTIAL MTG CMLS", priority: 20, notes: "RBC chequing mortgage payment format" },
         { pattern: "CMLS FINANCIAL", priority: 15, notes: null },
         { pattern: "CMLS", priority: 10, notes: null },
+        { pattern: "NESTO", priority: 10, notes: "Acquired by Nesto 2024" },
       ],
     },
     {
@@ -2564,21 +2612,23 @@ export const merchants: Merchant[] = [
     {
       merchantName: "AGF",
       merchantType: "Investment",
-      categoryName: "Non-Registered",
+      categoryName: "Mutual Funds",
       website: "https://www.agf.com",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "AGF Investments - mutual funds",
       patterns: [
+        { pattern: "MUTUAL FUNDS AGF", priority: 20, notes: "RBC chequing mutual fund payment" },
         { pattern: "AGF INVESTMENTS", priority: 15, notes: null },
+        { pattern: "AGF MANAGEMENT", priority: 15, notes: null },
         { pattern: "AGF", priority: 10, notes: "Mutual funds" },
       ],
     },
     {
       merchantName: "Wealthsimple",
       merchantType: "Investment",
-      categoryName: "Non-Registered",
+      categoryName: "Mutual Funds",
       website: "https://www.wealthsimple.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2589,7 +2639,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Questrade",
       merchantType: "Investment",
-      categoryName: "Non-Registered",
+      categoryName: "Mutual Funds",
       website: "https://www.questrade.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2621,9 +2671,10 @@ export const merchants: Merchant[] = [
       alternativeSavings: null,
       notes: "International money transfers (formerly TransferWise)",
       patterns: [
+        { pattern: "MISC PAYMENT WISE", priority: 20, notes: "RBC chequing Wise transfer" },
         { pattern: "WISE PAYMENTS", priority: 15, notes: null },
-        { pattern: "TRANSFERWISE", priority: 10, notes: null },
-        { pattern: "WISE", priority: 5, notes: "Lower priority - common word" },
+        { pattern: "TRANSFERWISE", priority: 15, notes: null },
+        { pattern: "WISE.COM", priority: 10, notes: null },
       ],
     },
     {
@@ -2650,48 +2701,308 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // CREDIT CARDS - Category: Credit Card Payment
+    // CREDIT CARD PAYMENTS - Category: Credit Card Payment
     // ============================================================================
     {
       merchantName: "AMEX",
       merchantType: "Credit Card",
-      categoryName: "Amex Payment",
+      categoryName: "AMEX",
       website: "https://www.americanexpress.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "American Express payment",
       patterns: [
+        { pattern: "AMEX BILL PYMT", priority: 25, notes: "RBC bill payment to Amex" },
+        { pattern: "INTER-FI FUND TR DR AMEX", priority: 25, notes: "Inter-FI fund transfer to Amex" },
+        { pattern: "AMERICAN EXPRESS PYMT", priority: 20, notes: "Amex payment" },
         { pattern: "AMERICAN EXPRESS", priority: 15, notes: null },
+        { pattern: "AMEX PAYMENT", priority: 15, notes: null },
+        { pattern: "AMEX PYMT", priority: 15, notes: null },
         { pattern: "AMEX", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "Triangle Mastercard",
+      merchantType: "Credit Card",
+      categoryName: "Triangle Mastercard",
+      website: "https://www.ctfs.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Canadian Tire Financial Services - Triangle Mastercard",
+      patterns: [
+        { pattern: "MISC PAYMENT CDN TIRE", priority: 25, notes: "RBC bill payment to Triangle MC" },
+        { pattern: "PAYMENT CDN TIRE", priority: 25, notes: "Bill payment to Triangle MC" },
+        { pattern: "TRIANGLE MASTERCARD", priority: 20, notes: null },
+        { pattern: "TRIANGLE MC", priority: 20, notes: null },
+        { pattern: "CDN TIRE FINANCIAL", priority: 20, notes: "Canadian Tire Financial Services" },
+        { pattern: "CANADIAN TIRE FINANCIAL", priority: 20, notes: null },
+        { pattern: "CTFS PAYMENT", priority: 20, notes: null },
+        { pattern: "CTFS", priority: 15, notes: "Canadian Tire Financial Services" },
+      ],
+    },
+    {
+      merchantName: "Walmart Mastercard",
+      merchantType: "Credit Card",
+      categoryName: "Walmart Mastercard",
+      website: "https://www.walmart.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Walmart Rewards Mastercard - Duo Bank of Canada",
+      patterns: [
+        { pattern: "WALMART MC", priority: 25, notes: "RBC online banking payment to Walmart MC" },
+        { pattern: "WALMART MASTERCARD", priority: 20, notes: null },
+        { pattern: "WALMART REWARDS MC", priority: 20, notes: null },
+        { pattern: "WALMART REWARDS MASTERCARD", priority: 20, notes: null },
+        { pattern: "WALMART REWARDS", priority: 15, notes: null },
+        { pattern: "DUO BANK WALMART", priority: 15, notes: "Duo Bank issues Walmart MC" },
+      ],
+    },
+    {
+      merchantName: "RBC Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "RBC Credit Card",
+      website: "https://www.rbcroyalbank.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "RBC Visa payment",
+      patterns: [
+        { pattern: "RBC VISA PAYMENT", priority: 20, notes: null },
+        { pattern: "ROYAL BANK VISA", priority: 15, notes: null },
+        { pattern: "RBC VISA", priority: 15, notes: null },
+        { pattern: "RBC AVION", priority: 15, notes: "RBC Avion Visa" },
+        { pattern: "RBC ION", priority: 15, notes: "RBC ION Visa" },
+        { pattern: "RBC CASHBACK", priority: 15, notes: "RBC Cashback MC" },
+      ],
+    },
+    {
+      merchantName: "TD Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "TD Credit Card",
+      website: "https://www.td.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "TD Visa payment",
+      patterns: [
+        { pattern: "TD VISA PAYMENT", priority: 20, notes: null },
+        { pattern: "TD VISA", priority: 15, notes: null },
+        { pattern: "TD FIRST CLASS", priority: 15, notes: "TD First Class Travel Visa" },
+        { pattern: "TD AEROPLAN", priority: 15, notes: "TD Aeroplan Visa" },
+        { pattern: "TD CASHBACK", priority: 15, notes: "TD Cash Back Visa" },
+        { pattern: "TD CREDIT CARD", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "CIBC Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "CIBC Credit Card",
+      website: "https://www.cibc.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "CIBC Visa payment",
+      patterns: [
+        { pattern: "CIBC VISA PAYMENT", priority: 20, notes: null },
+        { pattern: "CIBC VISA", priority: 15, notes: null },
+        { pattern: "CIBC AVENTURA", priority: 15, notes: "CIBC Aventura Visa" },
+        { pattern: "CIBC AEROPLAN", priority: 15, notes: "CIBC Aeroplan Visa" },
+        { pattern: "CIBC CREDIT CARD", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Scotiabank Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "Scotiabank Credit Card",
+      website: "https://www.scotiabank.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Scotiabank Visa payment",
+      patterns: [
+        { pattern: "SCOTIABANK VISA", priority: 15, notes: null },
+        { pattern: "SCOTIA VISA", priority: 15, notes: null },
+        { pattern: "SCOTIA MOMENTUM", priority: 15, notes: "Scotia Momentum Visa" },
+        { pattern: "SCOTIA GOLD", priority: 15, notes: "Scotia Gold Amex" },
+        { pattern: "SCENE+ VISA", priority: 15, notes: "Scene+ Visa" },
+        { pattern: "SCOTIABANK CREDIT", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "BMO Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "BMO Credit Card",
+      website: "https://www.bmo.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "BMO Mastercard payment",
+      patterns: [
+        { pattern: "BMO MASTERCARD", priority: 15, notes: null },
+        { pattern: "BMO MC PAYMENT", priority: 20, notes: null },
+        { pattern: "BMO MC", priority: 15, notes: null },
+        { pattern: "BMO VISA", priority: 15, notes: null },
+        { pattern: "BMO ECLIPSE", priority: 15, notes: "BMO Eclipse Visa" },
+        { pattern: "BMO AIRMILES", priority: 15, notes: "BMO AIR MILES MC" },
+        { pattern: "BMO CASHBACK", priority: 15, notes: "BMO CashBack MC" },
+        { pattern: "BMO CREDIT CARD", priority: 15, notes: null },
       ],
     },
     {
       merchantName: "Capital One",
       merchantType: "Credit Card",
-      categoryName: "Other CC Payment",
+      categoryName: "Capital One",
       website: "https://www.capitalone.ca",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "Capital One Mastercard payment",
-      patterns: [{ pattern: "CAPITAL ONE", priority: 10, notes: null }],
+      patterns: [
+        { pattern: "CAPITAL ONE PAYMENT", priority: 20, notes: null },
+        { pattern: "CAPITAL ONE", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "MBNA",
+      merchantType: "Credit Card",
+      categoryName: "MBNA",
+      website: "https://www.mbna.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "MBNA Mastercard - TD Bank subsidiary",
+      patterns: [
+        { pattern: "MBNA PAYMENT", priority: 20, notes: null },
+        { pattern: "MBNA MASTERCARD", priority: 15, notes: null },
+        { pattern: "MBNA", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "Tangerine Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "Tangerine Credit Card",
+      website: "https://www.tangerine.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Tangerine Mastercard - Scotiabank subsidiary",
+      patterns: [
+        { pattern: "TANGERINE MASTERCARD", priority: 15, notes: null },
+        { pattern: "TANGERINE MC", priority: 15, notes: null },
+        { pattern: "TANGERINE CREDIT", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Desjardins Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "Desjardins Credit Card",
+      website: "https://www.desjardins.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Desjardins Visa payment",
+      patterns: [
+        { pattern: "DESJARDINS VISA", priority: 15, notes: null },
+        { pattern: "DESJARDINS CREDIT", priority: 15, notes: null },
+        { pattern: "DESJARDINS MC", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "National Bank Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "National Bank Credit Card",
+      website: "https://www.nbc.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "National Bank Mastercard payment",
+      patterns: [
+        { pattern: "NATIONAL BANK MC", priority: 15, notes: null },
+        { pattern: "NATIONAL BANK MASTERCARD", priority: 15, notes: null },
+        { pattern: "NBC MASTERCARD", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "PC Financial Mastercard",
+      merchantType: "Credit Card",
+      categoryName: "PC Financial Mastercard",
+      website: "https://www.pcfinancial.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "PC Financial Mastercard - Loblaw/CIBC",
+      patterns: [
+        { pattern: "PC FINANCIAL MC", priority: 15, notes: null },
+        { pattern: "PC FINANCIAL MASTERCARD", priority: 15, notes: null },
+        { pattern: "PC MASTERCARD", priority: 15, notes: null },
+        { pattern: "PC OPTIMUM MC", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Rogers Credit Card",
+      merchantType: "Credit Card",
+      categoryName: "Rogers Credit Card",
+      website: "https://www.rogersbank.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Rogers Bank Mastercard",
+      patterns: [
+        { pattern: "ROGERS BANK", priority: 15, notes: null },
+        { pattern: "ROGERS MASTERCARD", priority: 15, notes: null },
+        { pattern: "ROGERS MC", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Brim Financial",
+      merchantType: "Credit Card",
+      categoryName: "Brim Financial",
+      website: "https://www.bfrm.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Brim Mastercard",
+      patterns: [
+        { pattern: "BRIM FINANCIAL", priority: 15, notes: null },
+        { pattern: "BRIM MC", priority: 15, notes: null },
+        { pattern: "BRIM MASTERCARD", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Home Trust Visa",
+      merchantType: "Credit Card",
+      categoryName: "Home Trust Visa",
+      website: "https://www.hometrust.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Home Trust Visa - no annual fee",
+      patterns: [
+        { pattern: "HOME TRUST VISA", priority: 15, notes: null },
+        { pattern: "HOMETRUST VISA", priority: 15, notes: null },
+      ],
     },
     {
       merchantName: "NEO Financial",
       merchantType: "Credit Card",
-      categoryName: "Other CC Payment",
+      categoryName: "NEO Financial",
       website: "https://www.neofinancial.com",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
       notes: "NEO Mastercard - cashback",
-      patterns: [{ pattern: "NEO FINANCIAL", priority: 10, notes: null }],
+      patterns: [
+        { pattern: "NEO FINANCIAL", priority: 10, notes: null },
+        { pattern: "NEO MC", priority: 15, notes: null },
+      ],
     },
     {
       merchantName: "Flexiti",
       merchantType: "Credit Card",
-      categoryName: "Other CC Payment",
+      categoryName: "Flexiti",
       website: "https://www.flexiti.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2700,52 +3011,27 @@ export const merchants: Merchant[] = [
       patterns: [{ pattern: "FLEXITI", priority: 10, notes: null }],
     },
     {
-      merchantName: "Triangle Mastercard",
+      merchantName: "Simplii Financial",
       merchantType: "Credit Card",
-      categoryName: "Triangle MC Payment",
-      website: "https://www.triangle.canadiantire.ca",
+      categoryName: "Simplii Financial",
+      website: "https://www.simplii.com",
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
-      notes: "Canadian Tire Triangle Mastercard",
+      notes: "Simplii Visa - CIBC digital brand",
       patterns: [
-        { pattern: "TRIANGLE MASTERCARD", priority: 15, notes: null },
-        { pattern: "CTFS", priority: 10, notes: "Canadian Tire Financial Services" },
-      ],
-    },
-    {
-      merchantName: "Walmart Mastercard",
-      merchantType: "Credit Card",
-      categoryName: "Walmart MC Payment",
-      website: "https://www.walmart.ca",
-      hasAlternative: false,
-      alternativeName: null,
-      alternativeSavings: null,
-      notes: "Walmart Rewards Mastercard",
-      patterns: [{ pattern: "WALMART REWARDS", priority: 15, notes: null }],
-    },
-    {
-      merchantName: "RBC Credit Card",
-      merchantType: "Credit Card",
-      categoryName: "RBC Visa Payment",
-      website: "https://www.rbcroyalbank.com",
-      hasAlternative: false,
-      alternativeName: null,
-      alternativeSavings: null,
-      notes: "RBC Visa payment",
-      patterns: [
-        { pattern: "RBC VISA", priority: 15, notes: null },
-        { pattern: "ROYAL BANK VISA", priority: 15, notes: null },
+        { pattern: "SIMPLII VISA", priority: 15, notes: null },
+        { pattern: "SIMPLII FINANCIAL", priority: 10, notes: null },
       ],
     },
 
     // ============================================================================
-    // PERSONAL CARE - Category: Haircut / Spa & Beauty
+    // PERSONAL CARE - Category: Grooming
     // ============================================================================
     {
       merchantName: "Oxford Barber Shop",
       merchantType: "Personal Care",
-      categoryName: "Haircut",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2756,7 +3042,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Pedi N Nails",
       merchantType: "Personal Care",
-      categoryName: "Spa & Beauty",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2767,7 +3053,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Royal Chair Hair",
       merchantType: "Personal Care",
-      categoryName: "Haircut",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2778,7 +3064,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Kids Kuts",
       merchantType: "Personal Care",
-      categoryName: "Haircut",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2792,7 +3078,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Nu Nails & Spa",
       merchantType: "Personal Care",
-      categoryName: "Spa & Beauty",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2803,7 +3089,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Helen Nail and Spa",
       merchantType: "Personal Care",
-      categoryName: "Spa & Beauty",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2814,7 +3100,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "KT Natural Nails",
       merchantType: "Personal Care",
-      categoryName: "Spa & Beauty",
+      categoryName: "Grooming",
       website: null,
       hasAlternative: false,
       alternativeName: null,
@@ -2825,7 +3111,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Great Clips",
       merchantType: "Personal Care",
-      categoryName: "Haircut",
+      categoryName: "Grooming",
       website: "https://www.greatclips.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2836,7 +3122,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "First Choice Haircutters",
       merchantType: "Personal Care",
-      categoryName: "Haircut",
+      categoryName: "Grooming",
       website: "https://www.firstchoice.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2847,7 +3133,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Sephora",
       merchantType: "Personal Care",
-      categoryName: "Personal Products",
+      categoryName: "Grooming",
       website: "https://www.sephora.com",
       hasAlternative: false,
       alternativeName: null,
@@ -2857,12 +3143,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // KIDS/FAMILY - Category: Toys & Games / Kids Clothing / Gifts Given
+    // KIDS/FAMILY - Category: Kids Activities / Clothing / Gifts Given
     // ============================================================================
     {
       merchantName: "Toys R Us",
       merchantType: "Retail",
-      categoryName: "Toys & Games",
+      categoryName: "Kids Activities",
       website: "https://www.toysrus.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2877,7 +3163,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Indigo",
       merchantType: "Retail",
-      categoryName: "Books & Media",
+      categoryName: "Entertainment",
       website: "https://www.chapters.indigo.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2903,7 +3189,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Bath & Body Works",
       merchantType: "Personal Care",
-      categoryName: "Personal Products",
+      categoryName: "Grooming",
       website: "https://www.bathandbodyworks.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -2917,7 +3203,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Build-A-Bear",
       merchantType: "Retail",
-      categoryName: "Toys & Games",
+      categoryName: "Kids Activities",
       website: "https://www.buildabear.ca",
       hasAlternative: false,
       alternativeName: null,
@@ -3152,8 +3438,12 @@ export const merchants: Merchant[] = [
       hasAlternative: false,
       alternativeName: null,
       alternativeSavings: null,
-      notes: "Parking payment app",
-      patterns: [{ pattern: "HONK MOBILE", priority: 10, notes: null }],
+      notes: "Mobile parking payment app",
+      patterns: [
+        { pattern: "HONK PARKING", priority: 15, notes: "Honk on CC statements" },
+        { pattern: "HONK MOBILE", priority: 15, notes: null },
+        { pattern: "HONKMOBILE", priority: 10, notes: null },
+      ],
     },
 
     // ============================================================================
@@ -3200,12 +3490,12 @@ export const merchants: Merchant[] = [
     },
 
     // ============================================================================
-    // RESTAURANTS - Category: Restaurants
+    // RESTAURANTS - Category: Eating Out
     // ============================================================================
     {
       merchantName: "The Keg",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.thekeg.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3216,7 +3506,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Earls",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.earls.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3227,7 +3517,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Moxies",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.moxies.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3238,7 +3528,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Milestones",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.milestonesrestaurants.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3249,7 +3539,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Boston Pizza",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.bostonpizza.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3263,7 +3553,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "East Side Marios",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.eastsidemarios.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3274,7 +3564,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Kelsey's",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.kelseys.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3285,7 +3575,7 @@ export const merchants: Merchant[] = [
     {
       merchantName: "Montana's",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.montanas.ca",
       hasAlternative: true,
       alternativeName: "Cook at home",
@@ -3296,13 +3586,336 @@ export const merchants: Merchant[] = [
     {
       merchantName: "St-Hubert",
       merchantType: "Restaurant",
-      categoryName: "Restaurants",
+      categoryName: "Eating Out",
       website: "https://www.st-hubert.com",
       hasAlternative: true,
       alternativeName: "Cook at home",
       alternativeSavings: 20,
       notes: "Quebec rotisserie chain - Recipe Unlimited",
       patterns: [{ pattern: "ST-HUBERT", priority: 10, notes: null }],
+    },
+
+    // ============================================================================
+    // SOFTWARE & SUBSCRIPTIONS - Category: Software & Tools
+    // ============================================================================
+    {
+      merchantName: "Claude AI",
+      merchantType: "Subscription",
+      categoryName: "Software & Tools",
+      website: "https://claude.ai",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Anthropic - Claude AI subscription",
+      patterns: [
+        { pattern: "CLAUDE.AI SUBSCRIPTION", priority: 20, notes: "Monthly subscription" },
+        { pattern: "CLAUDE.AI", priority: 15, notes: null },
+        { pattern: "ANTHROPIC", priority: 10, notes: "Anthropic Inc" },
+      ],
+    },
+    {
+      merchantName: "GitHub",
+      merchantType: "Subscription",
+      categoryName: "Software & Tools",
+      website: "https://github.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "GitHub - code hosting, Copilot, Actions",
+      patterns: [
+        { pattern: "GITHUB, INC.", priority: 15, notes: "GitHub on CC statements" },
+        { pattern: "GITHUB INC", priority: 15, notes: null },
+        { pattern: "GITHUB", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "Google One",
+      merchantType: "Subscription",
+      categoryName: "Software & Tools",
+      website: "https://one.google.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Google cloud storage subscription",
+      patterns: [
+        { pattern: "GOOGLE *Google One", priority: 20, notes: "Google billing format" },
+        { pattern: "GOOGLE*GOOGLE ONE", priority: 20, notes: null },
+        { pattern: "GOOGLE ONE", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Microsoft 365",
+      merchantType: "Subscription",
+      categoryName: "Software & Tools",
+      website: "https://www.microsoft.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Microsoft 365 subscription - Office, OneDrive",
+      patterns: [
+        { pattern: "MICROSOFT*MICROSOFT 36", priority: 25, notes: "M365 on CC statements" },
+        { pattern: "MICROSOFT 365", priority: 20, notes: null },
+        { pattern: "MICROSOFT*365", priority: 20, notes: null },
+        { pattern: "MICROSOFT*OFFICE", priority: 20, notes: null },
+        { pattern: "MSBILL.INFO", priority: 15, notes: "Microsoft billing domain" },
+      ],
+    },
+    {
+      merchantName: "HiDive",
+      merchantType: "Subscription",
+      categoryName: "Streaming",
+      website: "https://www.hidive.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Anime streaming - DICE Tech/AMC Networks",
+      patterns: [
+        { pattern: "HIDIVE SVC", priority: 15, notes: "HiDive on CC statements" },
+        { pattern: "HIDIVE", priority: 10, notes: null },
+      ],
+    },
+
+    // ============================================================================
+    // LOCAL HEALTH & MEDICAL - Category: Medical / Dental
+    // ============================================================================
+    {
+      merchantName: "Synergy Massage",
+      merchantType: "Medical",
+      categoryName: "Medical",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Massage therapy - London ON",
+      patterns: [
+        { pattern: "SYNERGY MASSAGE", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Northland Dental Centre",
+      merchantType: "Medical",
+      categoryName: "Dental",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Dental clinic - London ON",
+      patterns: [
+        { pattern: "NORTHLAND DENTAL", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "McRae Foot Health Centre",
+      merchantType: "Medical",
+      categoryName: "Medical",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Podiatrist/chiropodist - London ON",
+      patterns: [
+        { pattern: "MCRAE FOOT HEALTH", priority: 15, notes: null },
+        { pattern: "MCRAE FOOT", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "Orthomed Canada",
+      merchantType: "Medical",
+      categoryName: "Medical",
+      website: "https://www.orthomed.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Custom orthotics and bracing",
+      patterns: [
+        { pattern: "ORTHOMED CANADA", priority: 15, notes: null },
+        { pattern: "ORTHOMED", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "PocketHealth",
+      merchantType: "Medical",
+      categoryName: "Medical",
+      website: "https://www.pockethealth.com",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Online medical imaging records",
+      patterns: [
+        { pattern: "POCKETHEALTH", priority: 10, notes: null },
+        { pattern: "POCKET HEALTH", priority: 10, notes: null },
+      ],
+    },
+
+    // ============================================================================
+    // LOCAL FOOD & GROCERY - Category: Eating Out / Groceries
+    // ============================================================================
+    {
+      merchantName: "Mr. Pretzels",
+      merchantType: "Fast Food",
+      categoryName: "Eating Out",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Mall food court pretzel shop",
+      patterns: [
+        { pattern: "MR. PRETZELS", priority: 10, notes: null },
+        { pattern: "MR PRETZELS", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "The Fritter Co",
+      merchantType: "Fast Food",
+      categoryName: "Eating Out",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Apple fritter shop - London ON",
+      patterns: [
+        { pattern: "THE FRITTER CO", priority: 10, notes: null },
+        { pattern: "FRITTER CO", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "Yog 'N' Shake",
+      merchantType: "Fast Food",
+      categoryName: "Eating Out",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Frozen yogurt/smoothie shop - London ON (Square POS)",
+      patterns: [
+        { pattern: "YOG 'N' SHA", priority: 10, notes: "Truncated on statements" },
+        { pattern: "YOG N SHA", priority: 10, notes: null },
+        { pattern: "YOG 'N' SHAKE", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "Mt. Brydges Abattoir",
+      merchantType: "Grocery",
+      categoryName: "Groceries",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Local butcher shop - Mount Brydges ON",
+      patterns: [
+        { pattern: "MT. BRYDGES ABATTOIR", priority: 15, notes: null },
+        { pattern: "MT BRYDGES ABATTOIR", priority: 15, notes: null },
+        { pattern: "BRYDGES ABATTOIR", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "A Taste of Britain",
+      merchantType: "Grocery",
+      categoryName: "Groceries",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "British specialty grocery - London ON",
+      patterns: [
+        { pattern: "A TASTE OF BRITAIN", priority: 15, notes: null },
+        { pattern: "TASTE OF BRITAIN", priority: 10, notes: null },
+      ],
+    },
+
+    // ============================================================================
+    // LOCAL SERVICES & OTHER - Category: Various
+    // ============================================================================
+    {
+      merchantName: "Mobilinq",
+      merchantType: "Retail",
+      categoryName: "Phone",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Phone accessories and repair",
+      patterns: [
+        { pattern: "MOBILINQ", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "The Curly Ginger",
+      merchantType: "Personal Care",
+      categoryName: "Grooming",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Hair salon - London ON (Square POS)",
+      patterns: [
+        { pattern: "CURLY GINGER", priority: 10, notes: null },
+        { pattern: "THE CURLY GINGER", priority: 15, notes: null },
+      ],
+    },
+    {
+      merchantName: "London District Catholic School Board",
+      merchantType: "Education",
+      categoryName: "School",
+      website: "https://www.ldcsb.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "School fees, trips, activities - LDCSB",
+      patterns: [
+        { pattern: "LONDON DISTRICT CATHOL", priority: 15, notes: "Truncated on CC statements" },
+        { pattern: "LONDON DISTRICT CATHOLIC", priority: 15, notes: null },
+        { pattern: "LDCSB", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "FlixBus",
+      merchantType: "Transit",
+      categoryName: "Transit",
+      website: "https://www.flixbus.ca",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "Intercity bus service",
+      patterns: [
+        { pattern: "FLIXBUS INC", priority: 15, notes: null },
+        { pattern: "FLIXBUS", priority: 10, notes: null },
+      ],
+    },
+    {
+      merchantName: "Amref Canada",
+      merchantType: "Charity",
+      categoryName: "Charity",
+      website: "https://amrefcanada.org",
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "African health charity - monthly donation",
+      patterns: [
+        { pattern: "NBX*AMREF CANADA", priority: 20, notes: "NBX billing platform" },
+        { pattern: "AMREF CANADA", priority: 15, notes: null },
+        { pattern: "AMREF", priority: 10, notes: null },
+      ],
+    },
+
+    // ============================================================================
+    // BANK FEES & SERVICES - Category: Bank Fees
+    // ============================================================================
+    {
+      merchantName: "RBC Bank Fees",
+      merchantType: "Financial",
+      categoryName: "Bank Fees",
+      website: null,
+      hasAlternative: false,
+      alternativeName: null,
+      alternativeSavings: null,
+      notes: "RBC monthly account fee and other charges",
+      patterns: [
+        { pattern: "MONTHLY FEE", priority: 10, notes: "RBC monthly account fee" },
+        { pattern: "NSF ITEM FEE", priority: 15, notes: "Insufficient funds charge" },
+        { pattern: "OVERDRAFT FEE", priority: 10, notes: null },
+        { pattern: "SERVICE CHARGE", priority: 5, notes: "Generic - low priority" },
+      ],
     },
   ];
 

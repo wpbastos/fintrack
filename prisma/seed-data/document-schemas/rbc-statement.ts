@@ -94,7 +94,7 @@ const sampleData = {
       runningBalance: 1902.65,
       transactionType: "purchase",
       terminalId: "9204",
-      categoryHint: "Personal Care",
+      categoryHint: "Grooming",
     },
     {
       date: "2025-11-17",

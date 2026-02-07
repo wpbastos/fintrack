@@ -90,7 +90,7 @@ const sampleData = {
         city: "Seattle",
         province: "HH",
       },
-      categoryHint: "Gaming",
+      categoryHint: "Streaming",
     },
     {
       date: "2026-01-08",
