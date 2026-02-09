@@ -7,6 +7,7 @@ import { db } from './db';
 import { resolveDate } from './date-resolver';
 import { resolveMerchant } from './merchant-resolver';
 import { resolveIncome } from './income-resolver';
+import { PatternCache } from './pattern-cache';
 import { resolverLogger as log } from './logger';
 
 /**
@@ -50,13 +51,14 @@ export interface BatchResolutionResult {
 export async function resolveTransaction(
   rawDate: string | null,
   rawDescription: string | null,
-  rawAmount?: number | null
+  rawAmount?: number | null,
+  cache?: PatternCache
 ): Promise<TransactionResolution> {
   const resolvedDate = rawDate ? resolveDate(rawDate) : null;
 
   // Try BOTH pattern tables
-  const merchantMatch = rawDescription ? await resolveMerchant(rawDescription) : null;
-  const incomeMatch = rawDescription ? await resolveIncome(rawDescription) : null;
+  const merchantMatch = rawDescription ? await resolveMerchant(rawDescription, cache) : null;
+  const incomeMatch = rawDescription ? await resolveIncome(rawDescription, cache) : null;
 
   let merchantId: number | null = null;
   let incomeId: number | null = null;
@@ -144,12 +146,16 @@ export async function resolveBatch(
   let fullyResolved = 0;
   let unresolved = 0;
 
+  // Cache patterns for the entire batch to avoid redundant DB queries
+  const cache = new PatternCache();
+
   // Process each transaction
   for (const transaction of stagingTransactions) {
     const resolution = await resolveTransaction(
       transaction.rawDate,
       transaction.rawDescription,
-      transaction.rawAmount
+      transaction.rawAmount,
+      cache
     );
 
     // Determine status based on pattern resolution
@@ -225,11 +231,15 @@ export async function resolveAllPending(): Promise<BatchResolutionResult> {
   let fullyResolved = 0;
   let unresolved = 0;
 
+  // Cache patterns for the entire batch to avoid redundant DB queries
+  const cache = new PatternCache();
+
   for (const transaction of stagingTransactions) {
     const resolution = await resolveTransaction(
       transaction.rawDate,
       transaction.rawDescription,
-      transaction.rawAmount
+      transaction.rawAmount,
+      cache
     );
 
     // Determine status based on pattern resolution

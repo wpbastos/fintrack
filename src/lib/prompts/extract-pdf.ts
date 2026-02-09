@@ -28,7 +28,6 @@ export function buildExtractPdfPrompt(
   const schemasSections = schemas
     .map((s) => {
       const sampleData = JSON.parse(s.sampleData);
-      const documentType = s.documentType.replace(/_/g, " ");
 
       return `### \`${s.code}\` — ${s.name}
 **Institution:** ${s.institutionName || "Any"}

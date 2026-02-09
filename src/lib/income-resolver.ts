@@ -6,6 +6,7 @@
 
 import { db } from './db';
 import { createLogger } from './logger';
+import type { PatternCache } from './pattern-cache';
 
 const log = createLogger("Income");
 
@@ -22,15 +23,17 @@ const log = createLogger("Income");
  * @param description - Raw transaction description from bank statement
  * @returns IncomeID if matched, null otherwise
  */
-export async function resolveIncomeId(description: string): Promise<number | null> {
+export async function resolveIncomeId(description: string, cache?: PatternCache): Promise<number | null> {
   if (!description) return null;
 
   // Get all income patterns (including inactive — they auto-activate on first transaction)
-  const patterns = await db.incomePattern.findMany({
-    include: {
-      income: true,
-    },
-  });
+  const patterns = cache
+    ? await cache.getIncomePatterns()
+    : await db.incomePattern.findMany({
+        include: {
+          income: true,
+        },
+      });
 
   // Sort by priority (desc) and pattern length (desc)
   const sortedPatterns = patterns.sort((a, b) => {
@@ -59,7 +62,7 @@ export async function resolveIncomeId(description: string): Promise<number | nul
  * @param description - Raw transaction description
  * @returns Income object with pattern info, or null
  */
-export async function resolveIncome(description: string): Promise<{
+export async function resolveIncome(description: string, cache?: PatternCache): Promise<{
   incomeId: number;
   name: string;
   pattern: string;
@@ -68,11 +71,13 @@ export async function resolveIncome(description: string): Promise<{
 } | null> {
   if (!description) return null;
 
-  const patterns = await db.incomePattern.findMany({
-    include: {
-      income: true,
-    },
-  });
+  const patterns = cache
+    ? await cache.getIncomePatterns()
+    : await db.incomePattern.findMany({
+        include: {
+          income: true,
+        },
+      });
 
   const sortedPatterns = patterns.sort((a, b) => {
     if (b.priority !== a.priority) {

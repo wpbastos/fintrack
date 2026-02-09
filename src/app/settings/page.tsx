@@ -1,28 +1,21 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSettings, getDatabaseStats, getBudgetStatus } from "./actions";
+import { SettingsClient } from "./settings-client";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const [settings, dbStats, budgetStatus] = await Promise.all([
+    getSettings(["currency", "dateFormat"]),
+    getDatabaseStats(),
+    getBudgetStatus(),
+  ]);
+
+  const extractConcurrency = process.env.EXTRACT_CONCURRENCY ?? "1";
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your application preferences.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming Soon</CardTitle>
-          <CardDescription>
-            Settings will be available in a future update.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Planned features: Account management, category rules, export options.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <SettingsClient
+      initialSettings={settings}
+      dbStats={dbStats}
+      budgetStatus={budgetStatus}
+      extractConcurrency={extractConcurrency}
+    />
   );
 }

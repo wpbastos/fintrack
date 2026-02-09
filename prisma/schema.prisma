@@ -96,10 +96,15 @@ model StagingTransaction {
 
   // Relation to Import
   importId             Int?      @map("import_id")
-  import               Import?   @relation(fields: [importId], references: [id])
+  import               Import?   @relation(fields: [importId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([importBatchId])
+  @@index([importId])
+  @@index([merchantId])
+  @@index([incomeId])
+  @@index([categoryId])
+  @@index([accountId])
   @@map("staging_transaction")
 }
 
@@ -148,6 +153,12 @@ model Transaction {
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   @@index([date])
+  @@index([merchantId])
+  @@index([incomeId])
+  @@index([categoryId, date])
+  @@index([accountId])
+  @@index([personId])
+  @@index([importId])
   @@map("transaction")
 }
 
@@ -248,6 +259,9 @@ model Account {
   budgetPeriods       BudgetPeriod[]
 
   @@unique([name, institutionId])
+  @@index([institutionId])
+  @@index([ownerId])
+  @@index([type])
   @@map("account")
 }
 
@@ -308,6 +322,8 @@ model Category {
   transactions         Transaction[]
   budgetPeriods        BudgetPeriod[]
 
+  @@index([groupId])
+  @@index([parentId])
   @@map("category")
 }
 
@@ -330,6 +346,8 @@ model BudgetPeriod {
 
   @@unique([categoryId, periodStart])
   @@index([status])
+  @@index([categoryId, status])
+  @@index([status, periodEnd])
   @@map("budget_period")
 }
 
@@ -357,7 +375,7 @@ model Position {
   title      String    @map("title")
   department String?   @map("department")
   employerId Int       @map("employer_id")
-  employer   Employer  @relation(fields: [employerId], references: [id])
+  employer   Employer  @relation(fields: [employerId], references: [id], onDelete: Cascade)
   startDate  DateTime? @map("start_date")
   endDate    DateTime? @map("end_date")
   isActive   Boolean   @default(true) @map("is_active")
@@ -369,6 +387,7 @@ model Position {
   incomes Income[]
 
   @@unique([title, employerId])
+  @@index([employerId])
   @@map("position")
 }
 
@@ -437,6 +456,17 @@ model Payslip {
 
   @@unique([incomeId, effectiveDate])
   @@map("payslip")
+}
+
+// Application Settings (key-value store)
+model Setting {
+  id        Int      @id @default(autoincrement()) @map("id")
+  key       String   @unique @map("key")
+  value     String   @map("value")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("setting")
 }
 
 // Document Schema - stores JSON templates for different document types

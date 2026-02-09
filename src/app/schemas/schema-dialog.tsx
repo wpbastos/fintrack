@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,15 +95,11 @@ export function SchemaDialog({ schema, trigger, onSuccess }: SchemaDialogProps) 
     setOpen(newOpen);
   };
 
-  // Auto-generate code from name
-  useEffect(() => {
-    if (!codeManuallyEdited && name) {
-      setCode(generateCodeFromName(name));
-    }
-  }, [name, codeManuallyEdited]);
-
   const handleNameChange = (value: string) => {
     setName(value);
+    if (!codeManuallyEdited && value) {
+      setCode(generateCodeFromName(value));
+    }
   };
 
   const handleCodeChange = (value: string) => {

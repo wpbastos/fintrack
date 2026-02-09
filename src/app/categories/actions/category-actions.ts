@@ -204,6 +204,25 @@ export async function deleteChildCategory(
   categoryId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const [transactionCount, merchantCount, stagingCount, incomeCount] = await Promise.all([
+      db.transaction.count({ where: { categoryId } }),
+      db.merchant.count({ where: { categoryId } }),
+      db.stagingTransaction.count({ where: { categoryId } }),
+      db.income.count({ where: { categoryId } }),
+    ]);
+
+    if (transactionCount > 0 || merchantCount > 0 || stagingCount > 0 || incomeCount > 0) {
+      const parts: string[] = [];
+      if (transactionCount > 0) parts.push(`${transactionCount} transaction(s)`);
+      if (merchantCount > 0) parts.push(`${merchantCount} merchant(s)`);
+      if (stagingCount > 0) parts.push(`${stagingCount} staging transaction(s)`);
+      if (incomeCount > 0) parts.push(`${incomeCount} income source(s)`);
+      return {
+        success: false,
+        error: `Cannot delete: ${parts.join(", ")} linked to this category`,
+      };
+    }
+
     await db.category.delete({
       where: { id: categoryId },
     });
@@ -247,6 +266,32 @@ export async function deleteParentCategory(
   categoryId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Get all child category IDs
+    const children = await db.category.findMany({
+      where: { parentId: categoryId },
+      select: { id: true },
+    });
+    const allCategoryIds = [categoryId, ...children.map((c) => c.id)];
+
+    const [transactionCount, merchantCount, stagingCount, incomeCount] = await Promise.all([
+      db.transaction.count({ where: { categoryId: { in: allCategoryIds } } }),
+      db.merchant.count({ where: { categoryId: { in: allCategoryIds } } }),
+      db.stagingTransaction.count({ where: { categoryId: { in: allCategoryIds } } }),
+      db.income.count({ where: { categoryId: { in: allCategoryIds } } }),
+    ]);
+
+    if (transactionCount > 0 || merchantCount > 0 || stagingCount > 0 || incomeCount > 0) {
+      const parts: string[] = [];
+      if (transactionCount > 0) parts.push(`${transactionCount} transaction(s)`);
+      if (merchantCount > 0) parts.push(`${merchantCount} merchant(s)`);
+      if (stagingCount > 0) parts.push(`${stagingCount} staging transaction(s)`);
+      if (incomeCount > 0) parts.push(`${incomeCount} income source(s)`);
+      return {
+        success: false,
+        error: `Cannot delete: ${parts.join(", ")} linked to this category or its children`,
+      };
+    }
+
     await db.category.deleteMany({
       where: { parentId: categoryId },
     });

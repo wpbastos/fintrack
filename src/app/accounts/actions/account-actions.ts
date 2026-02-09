@@ -127,6 +127,23 @@ export async function deleteAccount(
   accountId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const [transactionCount, importCount, stagingCount] = await Promise.all([
+      db.transaction.count({ where: { accountId } }),
+      db.import.count({ where: { accountId } }),
+      db.stagingTransaction.count({ where: { accountId } }),
+    ]);
+
+    if (transactionCount > 0 || importCount > 0 || stagingCount > 0) {
+      const parts: string[] = [];
+      if (transactionCount > 0) parts.push(`${transactionCount} transaction(s)`);
+      if (importCount > 0) parts.push(`${importCount} import(s)`);
+      if (stagingCount > 0) parts.push(`${stagingCount} staging transaction(s)`);
+      return {
+        success: false,
+        error: `Cannot delete: ${parts.join(", ")} linked to this account`,
+      };
+    }
+
     await db.account.delete({
       where: { id: accountId },
     });

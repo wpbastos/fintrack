@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,44 +12,52 @@ import {
 } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { formatDate, formatCurrency } from "@/lib/format";
+import { getFilteredTransactions, getFilterOptions, type TransactionFilters } from "./actions";
+import { TransactionFilterBar } from "./transaction-filters";
 
-const PAGE_SIZE = 50;
-
-async function getTransactions(page: number) {
-  const [transactions, total] = await Promise.all([
-    db.transaction.findMany({
-      orderBy: { date: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        merchant: true,
-        income: true,
-        account: {
-          include: {
-            institution: { select: { name: true } },
-          },
-        },
-        category: {
-          include: {
-            group: { select: { color: true } },
-          },
-        },
-      },
-    }),
-    db.transaction.count(),
-  ]);
-  return { transactions, total };
+function buildPageUrl(page: number, params: URLSearchParams) {
+  const newParams = new URLSearchParams(params);
+  if (page <= 1) {
+    newParams.delete("page");
+  } else {
+    newParams.set("page", String(page));
+  }
+  const qs = newParams.toString();
+  return `/transactions${qs ? `?${qs}` : ""}`;
 }
 
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
-  const currentPage = Math.max(1, parseInt(params.page || "1", 10));
-  const { transactions, total } = await getTransactions(currentPage);
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
+
+  const filters: TransactionFilters = {
+    search: params.search,
+    dateFrom: params.dateFrom,
+    dateTo: params.dateTo,
+    accountId: params.accountId,
+    categoryId: params.categoryId,
+    type: params.type as TransactionFilters["type"],
+    amountMin: params.amountMin,
+    amountMax: params.amountMax,
+  };
+
+  const [{ transactions, total, pageSize }, filterOptions] = await Promise.all([
+    getFilteredTransactions(filters, currentPage),
+    getFilterOptions(),
+  ]);
+
+  const totalPages = Math.ceil(total / pageSize);
+  const hasFilters = Object.values(filters).some(Boolean);
+
+  // Build URLSearchParams for pagination links (preserving filter state)
+  const urlParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "page") urlParams.set(key, value);
+  }
 
   return (
     <div className="space-y-6">
@@ -60,18 +68,27 @@ export default async function TransactionsPage({
         </p>
       </div>
 
+      <Suspense fallback={null}>
+        <TransactionFilterBar
+          accounts={filterOptions.accounts}
+          categories={filterOptions.categories}
+        />
+      </Suspense>
+
       <Card>
         <CardHeader>
           <CardTitle>Transaction History</CardTitle>
           <CardDescription>
-            {total} transactions
+            {hasFilters ? `${total} matching transactions` : `${total} transactions`}
             {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No transactions yet. Import statements and move them from staging.
+              {hasFilters
+                ? "No transactions match the current filters."
+                : "No transactions yet. Import statements and move them from staging."}
             </div>
           ) : (
             <div className="rounded-md border">
@@ -149,7 +166,7 @@ export default async function TransactionsPage({
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4">
               <p className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} of {total}
+                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, total)} of {total}
               </p>
               <div className="flex items-center gap-1">
                 <Button
@@ -159,7 +176,7 @@ export default async function TransactionsPage({
                   asChild
                   disabled={currentPage <= 1}
                 >
-                  <Link href={currentPage <= 1 ? "#" : "/transactions?page=1"}>
+                  <Link href={currentPage <= 1 ? "#" : buildPageUrl(1, urlParams)}>
                     <ChevronsLeft className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -170,7 +187,7 @@ export default async function TransactionsPage({
                   asChild
                   disabled={currentPage <= 1}
                 >
-                  <Link href={currentPage <= 1 ? "#" : `/transactions?page=${currentPage - 1}`}>
+                  <Link href={currentPage <= 1 ? "#" : buildPageUrl(currentPage - 1, urlParams)}>
                     <ChevronLeft className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -184,7 +201,7 @@ export default async function TransactionsPage({
                   asChild
                   disabled={currentPage >= totalPages}
                 >
-                  <Link href={currentPage >= totalPages ? "#" : `/transactions?page=${currentPage + 1}`}>
+                  <Link href={currentPage >= totalPages ? "#" : buildPageUrl(currentPage + 1, urlParams)}>
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -195,7 +212,7 @@ export default async function TransactionsPage({
                   asChild
                   disabled={currentPage >= totalPages}
                 >
-                  <Link href={currentPage >= totalPages ? "#" : `/transactions?page=${totalPages}`}>
+                  <Link href={currentPage >= totalPages ? "#" : buildPageUrl(totalPages, urlParams)}>
                     <ChevronsRight className="h-4 w-4" />
                   </Link>
                 </Button>

@@ -21,6 +21,7 @@ import { NotesCell } from "./notes-cell";
 import { GroupActions } from "./group-actions";
 import { AddCategoryDialog } from "./add-category-dialog";
 import { AddGroupDialog } from "./add-group-dialog";
+import { BudgetPeriodsDialog } from "./budget-periods-dialog";
 import { X } from "lucide-react";
 import { formatCompactCurrency } from "@/lib/format";
 
@@ -387,6 +388,13 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                             </TableCell>
                             <TableCell className="p-0 pr-1">
                               <div className="flex items-center justify-end gap-1">
+                                {effectiveBudget != null && effectiveBudget > 0 && (
+                                  <BudgetPeriodsDialog
+                                    categoryId={category.id}
+                                    categoryName={category.name}
+                                    currentBudget={effectiveBudget}
+                                  />
+                                )}
                                 <CategoryActions
                                   categoryId={category.id}
                                   categoryName={category.name}
@@ -450,6 +458,13 @@ export function CategoriesPanel({ groups, allGroups, categoryStats, budgetStats 
                                 </TableCell>
                                 <TableCell className="p-0 pr-1">
                                   <div className="flex items-center justify-end gap-1">
+                                    {child.monthlyBudget != null && child.monthlyBudget > 0 && (
+                                      <BudgetPeriodsDialog
+                                        categoryId={child.id}
+                                        categoryName={child.name}
+                                        currentBudget={child.monthlyBudget}
+                                      />
+                                    )}
                                     <ChildActions
                                       categoryId={child.id}
                                       categoryName={child.name}

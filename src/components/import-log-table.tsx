@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Fragment, useCallback, useMemo, useTransition } from "react";
-import { ChevronDown, ChevronRight, FileJson, Copy, Check, Trash2, Maximize2, Minimize2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FileJson, Trash2, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   BarChart,
@@ -23,17 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteImport } from "@/app/log/actions";
+import { JsonContentDialog } from "@/components/json-viewer";
+import { formatCurrency } from "@/lib/format";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Account {
   id: number;
@@ -116,12 +111,9 @@ function getAiStatusBadge(status: string) {
   );
 }
 
-function formatCurrency(amount: number | null) {
-  if (amount === null) return "—";
-  return amount.toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  });
+function formatNullableCurrency(amount: number | null) {
+  if (amount === null) return "\u2014";
+  return formatCurrency(amount);
 }
 
 function formatDate(date: Date | null) {
@@ -144,192 +136,10 @@ function formatDateTime(date: Date | null) {
   });
 }
 
-// JSON Line Component - renders a single line with proper gutter alignment
-function JsonLine({
-  level,
-  expandable = false,
-  expanded = false,
-  onToggle,
-  children
-}: {
-  level: number;
-  expandable?: boolean;
-  expanded?: boolean;
-  onToggle?: () => void;
-  children: React.ReactNode;
-}) {
-  const INDENT_SIZE = 20;
-  const GUTTER_WIDTH = 16;
-
-  return (
-    <div
-      className={`flex items-start leading-6 ${expandable ? "cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-700/50" : ""}`}
-      onClick={expandable ? onToggle : undefined}
-    >
-      {/* Fixed gutter column for expand/collapse icons */}
-      <div
-        className="shrink-0 flex items-center justify-center h-6"
-        style={{ width: GUTTER_WIDTH, marginLeft: level * INDENT_SIZE }}
-      >
-        {expandable && (
-          expanded ? (
-            <ChevronDown className="h-3 w-3 text-slate-400" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-slate-400" />
-          )
-        )}
-      </div>
-      {/* Content */}
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-// Format a primitive value with appropriate styling
-function JsonValue({ value }: { value: unknown }) {
-  if (typeof value === "string") {
-    return <span className="text-amber-600 dark:text-amber-400">&quot;{value}&quot;</span>;
-  }
-  if (typeof value === "number") {
-    return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
-  }
-  if (typeof value === "boolean") {
-    return <span className="text-purple-600 dark:text-purple-400">{String(value)}</span>;
-  }
-  if (value === null) {
-    return <span className="text-slate-400 dark:text-slate-500">null</span>;
-  }
-  return <span>{String(value)}</span>;
-}
-
-// Collapsible JSON Node Component
-function JsonNode({ data, name, level = 0, defaultExpanded = true }: {
-  data: unknown;
-  name?: string;
-  level?: number;
-  defaultExpanded?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(defaultExpanded && level < 2);
-
-  const isObject = data !== null && typeof data === "object";
-  const isArray = Array.isArray(data);
-  const isEmpty = isObject && Object.keys(data as object).length === 0;
-
-  // Primitive value
-  if (!isObject || data === null) {
-    return (
-      <JsonLine level={level}>
-        {name !== undefined && (
-          <>
-            <span className="text-rose-600 dark:text-rose-400">&quot;{name}&quot;</span>
-            <span className="text-slate-500">: </span>
-          </>
-        )}
-        <JsonValue value={data} />
-      </JsonLine>
-    );
-  }
-
-  const entries = Object.entries(data as object);
-  const bracketOpen = isArray ? "[" : "{";
-  const bracketClose = isArray ? "]" : "}";
-
-  // Empty object/array
-  if (isEmpty) {
-    return (
-      <JsonLine level={level}>
-        {name !== undefined && (
-          <>
-            <span className="text-rose-600 dark:text-rose-400">&quot;{name}&quot;</span>
-            <span className="text-slate-500">: </span>
-          </>
-        )}
-        <span className="text-slate-500">{bracketOpen}{bracketClose}</span>
-      </JsonLine>
-    );
-  }
-
-  return (
-    <>
-      {/* Opening line with expand/collapse */}
-      <JsonLine
-        level={level}
-        expandable
-        expanded={expanded}
-        onToggle={() => setExpanded(!expanded)}
-      >
-        {name !== undefined && (
-          <>
-            <span className="text-rose-600 dark:text-rose-400">&quot;{name}&quot;</span>
-            <span className="text-slate-500">: </span>
-          </>
-        )}
-        <span className="text-slate-500">{bracketOpen}</span>
-        {!expanded && (
-          <>
-            <span className="text-slate-400 ml-1">
-              {isArray ? `${entries.length} items` : `${entries.length} keys`}
-            </span>
-            <span className="text-slate-500 ml-1">{bracketClose}</span>
-          </>
-        )}
-      </JsonLine>
-
-      {/* Children */}
-      {expanded && (
-        <>
-          {entries.map(([key, value]) => (
-            <JsonNode
-              key={key}
-              data={value}
-              name={isArray ? undefined : key}
-              level={level + 1}
-              defaultExpanded={level < 1}
-            />
-          ))}
-          {/* Closing bracket */}
-          <JsonLine level={level}>
-            <span className="text-slate-500">{bracketClose}</span>
-          </JsonLine>
-        </>
-      )}
-    </>
-  );
-}
-
 function ContentDialog({ content, fileName }: { content: string | null; fileName: string }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<"tree" | "raw">("tree");
-
-  const handleOpen = () => {
-    setViewMode("tree");
-    setOpen(true);
-  };
-
-  const handleCopy = useCallback(() => {
-    if (!content) return;
-    let textToCopy = content;
-    try {
-      textToCopy = JSON.stringify(JSON.parse(content), null, 2);
-    } catch {
-      // Keep original
-    }
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [content]);
 
   if (!content) return <span className="text-muted-foreground text-xs">—</span>;
-
-  let parsedContent: unknown = null;
-  let formattedContent = content;
-  try {
-    parsedContent = JSON.parse(content);
-    formattedContent = JSON.stringify(parsedContent, null, 2);
-  } catch {
-    // Keep original if not valid JSON
-  }
 
   return (
     <>
@@ -339,105 +149,37 @@ function ContentDialog({ content, fileName }: { content: string | null; fileName
         className="h-7 w-7 p-0 rounded-md text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-950/50 shadow-[0_2px_0_0_rgba(99,102,241,0.4)] hover:bg-indigo-100 hover:shadow-[0_0_8px_2px_rgba(99,102,241,0.4)] hover:scale-110 active:shadow-none active:scale-100 active:translate-y-[1px] transition-all duration-150 dark:hover:bg-indigo-900/70"
         onClick={(e) => {
           e.stopPropagation();
-          handleOpen();
+          setOpen(true);
         }}
         title="View JSON content"
       >
         <FileJson className="h-4 w-4" />
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            maxWidth: "56rem",
-            height: "85vh",
-            overflow: "hidden",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileJson className="h-5 w-5 text-indigo-600" />
-              Import Content
-            </DialogTitle>
-            <DialogDescription>{fileName}</DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2 border-b pb-2">
-            <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
-              <button
-                onClick={() => setViewMode("tree")}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === "tree"
-                    ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Tree View
-              </button>
-              <button
-                onClick={() => setViewMode("raw")}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === "raw"
-                    ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Raw JSON
-              </button>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 ml-auto"
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3 w-3 mr-1" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3 w-3 mr-1" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </div>
-          <div
-            style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
-            className="rounded-md bg-slate-50 dark:bg-slate-900 p-4"
-          >
-            {viewMode === "tree" && parsedContent !== null ? (
-              <div className="text-xs font-mono">
-                <JsonNode data={parsedContent} defaultExpanded={true} />
-              </div>
-            ) : (
-              <pre className="text-xs font-mono whitespace-pre">{formattedContent}</pre>
-            )}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <JsonContentDialog
+        content={content}
+        description={fileName}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
 
 function DeleteImportButton({ importId, fileName, status }: { importId: number; fileName: string; status: string }) {
   const [isPending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Only show delete button for staged imports
   if (status === "finalized") {
     return null;
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Delete import "${fileName}" and all its staging transactions?`)) return;
+    setConfirmOpen(true);
+  };
 
+  const handleConfirm = () => {
     startTransition(async () => {
       const result = await deleteImport(importId);
       if (result.success) {
@@ -449,16 +191,27 @@ function DeleteImportButton({ importId, fileName, status }: { importId: number; 
   };
 
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-7 w-7 p-0 rounded-md text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/50 shadow-[0_2px_0_0_rgba(244,63,94,0.4)] hover:bg-rose-100 hover:shadow-[0_0_8px_2px_rgba(244,63,94,0.4)] hover:scale-110 active:shadow-none active:scale-100 active:translate-y-[1px] transition-all duration-150 dark:hover:bg-rose-900/70 disabled:opacity-50 disabled:shadow-[0_2px_0_0_rgba(244,63,94,0.2)] disabled:hover:scale-100 disabled:hover:shadow-[0_2px_0_0_rgba(244,63,94,0.2)]"
-      onClick={handleDelete}
-      disabled={isPending}
-      title="Delete import"
-    >
-      <Trash2 className="h-4 w-4" />
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 w-7 p-0 rounded-md text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/50 shadow-[0_2px_0_0_rgba(244,63,94,0.4)] hover:bg-rose-100 hover:shadow-[0_0_8px_2px_rgba(244,63,94,0.4)] hover:scale-110 active:shadow-none active:scale-100 active:translate-y-[1px] transition-all duration-150 dark:hover:bg-rose-900/70 disabled:opacity-50 disabled:shadow-[0_2px_0_0_rgba(244,63,94,0.2)] disabled:hover:scale-100 disabled:hover:shadow-[0_2px_0_0_rgba(244,63,94,0.2)]"
+        onClick={handleClick}
+        disabled={isPending}
+        title="Delete import"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete Import"
+        description={`Delete import "${fileName}" and all its staging transactions?`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirm}
+      />
+    </>
   );
 }
 
@@ -1057,7 +810,7 @@ export function ImportTable({ logs }: ImportTableProps) {
                   <TableCell>
                     {log.openingBalance !== null && log.closingBalance !== null ? (
                       <span className="font-mono text-sm">
-                        {formatCurrency(log.openingBalance)} → {formatCurrency(log.closingBalance)}
+                        {formatNullableCurrency(log.openingBalance)} → {formatNullableCurrency(log.closingBalance)}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -1195,12 +948,12 @@ export function ImportTable({ logs }: ImportTableProps) {
                             <div className="flex items-center justify-between w-full">
                               <div>
                                 <p className="text-xs text-muted-foreground">Opening</p>
-                                <p className="font-mono font-medium">{formatCurrency(log.openingBalance)}</p>
+                                <p className="font-mono font-medium">{formatNullableCurrency(log.openingBalance)}</p>
                               </div>
                               <div className="text-muted-foreground text-xl">→</div>
                               <div className="text-right">
                                 <p className="text-xs text-muted-foreground">Closing</p>
-                                <p className="font-mono font-medium">{formatCurrency(log.closingBalance)}</p>
+                                <p className="font-mono font-medium">{formatNullableCurrency(log.closingBalance)}</p>
                               </div>
                             </div>
                             {balanceChange !== null && (

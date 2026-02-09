@@ -5,6 +5,7 @@
 
 import { db } from './db';
 import { createLogger } from './logger';
+import type { PatternCache } from './pattern-cache';
 
 const log = createLogger("Merchant");
 
@@ -21,20 +22,22 @@ const log = createLogger("Merchant");
  * @param description - Raw transaction description from bank statement
  * @returns MerchantID if matched, null otherwise
  */
-export async function resolveMerchantId(description: string): Promise<number | null> {
+export async function resolveMerchantId(description: string, cache?: PatternCache): Promise<number | null> {
   if (!description) return null;
 
   // Get all merchant patterns with their merchants
-  const patterns = await db.merchantPattern.findMany({
-    include: {
-      merchant: true,
-    },
-    where: {
-      merchant: {
-        isActive: true,
-      },
-    },
-  });
+  const patterns = cache
+    ? await cache.getMerchantPatterns()
+    : await db.merchantPattern.findMany({
+        include: {
+          merchant: true,
+        },
+        where: {
+          merchant: {
+            isActive: true,
+          },
+        },
+      });
 
   // Sort by priority (desc) and pattern length (desc)
   const sortedPatterns = patterns.sort((a, b) => {
@@ -63,7 +66,7 @@ export async function resolveMerchantId(description: string): Promise<number | n
  * @param description - Raw transaction description
  * @returns Merchant object with pattern info, or null
  */
-export async function resolveMerchant(description: string): Promise<{
+export async function resolveMerchant(description: string, cache?: PatternCache): Promise<{
   merchantId: number;
   merchantName: string;
   pattern: string;
@@ -72,16 +75,18 @@ export async function resolveMerchant(description: string): Promise<{
 } | null> {
   if (!description) return null;
 
-  const patterns = await db.merchantPattern.findMany({
-    include: {
-      merchant: true,
-    },
-    where: {
-      merchant: {
-        isActive: true,
-      },
-    },
-  });
+  const patterns = cache
+    ? await cache.getMerchantPatterns()
+    : await db.merchantPattern.findMany({
+        include: {
+          merchant: true,
+        },
+        where: {
+          merchant: {
+            isActive: true,
+          },
+        },
+      });
 
   const sortedPatterns = patterns.sort((a, b) => {
     if (b.priority !== a.priority) {

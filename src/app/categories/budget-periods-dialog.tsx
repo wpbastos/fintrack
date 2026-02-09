@@ -155,6 +155,16 @@ export function BudgetPeriodsDialog({
                               On budget
                             </span>
                           )}
+                          {period.status === "open" && (() => {
+                            const now = new Date();
+                            const end = new Date(period.periodEnd);
+                            const daysLeft = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+                            return (
+                              <span className="text-xs text-muted-foreground">
+                                {daysLeft} {daysLeft === 1 ? "day" : "days"} remaining
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileCode2, Building2, CreditCard, FileText, Receipt, FileSpreadsheet } from "lucide-react";
+import { FileCode2, Building2, CreditCard, FileText, FileSpreadsheet } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SchemaPanel } from "./schema-panel";
 import type { DocumentSchema } from "./types";

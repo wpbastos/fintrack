@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Filter, Plus, X } from "lucide-react";
+import { Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Popover,

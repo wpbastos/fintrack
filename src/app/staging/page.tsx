@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { formatDateISO } from "@/lib/date-resolver";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { StagingTable } from "./staging-table";
 
 async function getStagingTransactions() {

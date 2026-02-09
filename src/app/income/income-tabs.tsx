@@ -7,6 +7,7 @@ import { IncomePanel } from "./income-panel";
 import { PositionsPanel } from "./positions-panel";
 import { EmployersPanel } from "./employers-panel";
 import { StatusFilter } from "./status-filter";
+import { formatCurrency } from "@/lib/format";
 import type { IncomeStat } from "./page";
 
 interface CategoryGroup {
@@ -164,13 +165,6 @@ export function IncomeTabs({ incomeSources, positions, employers, incomeStats }:
     ? ((totalAnnualGross - totalAnnualNet) / totalAnnualGross) * 100
     : 0;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-CA", {
-      style: "currency",
-      currency: "CAD",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // Filter sources based on status
   const filteredSources = incomeSources.filter((s) =>

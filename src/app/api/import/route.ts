@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { statement, transactions, force, skipBalanceValidation, extractionMetrics } = data;
+    const { statement, transactions, force, extractionMetrics } = data;
 
     // Calculate transaction sum for balance validation (will be recalculated after normalization)
     let transactionSum = transactions.reduce((sum, txn) => sum + (txn.amount ?? 0), 0);
@@ -155,6 +155,21 @@ export async function POST(request: NextRequest) {
       log.debug("BALANCE", "Skipping balance validation - opening or closing balance not provided");
     }
     log.debug("VALIDATE", `Statement: ${statement.sourceFile || "unknown"}, Force: ${force || false}`);
+
+    // Validate that provided accountId exists
+    if (statement.accountId) {
+      const accountExists = await db.account.findUnique({
+        where: { id: statement.accountId },
+        select: { id: true },
+      });
+      if (!accountExists) {
+        log.warn("VALIDATE", `Account ID ${statement.accountId} not found`);
+        return NextResponse.json(
+          { error: `Account not found: ID ${statement.accountId}` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Resolve account: either use provided accountId or create/find from account object
     log.debug("ACCOUNT", "Resolving account...");
@@ -344,7 +359,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     log.error("ERROR", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Import failed" },
+      { error: "Import failed. Please check your data and try again." },
       { status: 500 }
     );
   }

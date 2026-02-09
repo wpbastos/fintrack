@@ -7,6 +7,7 @@ import { InstitutionsPanel } from "./institutions-panel";
 import { PersonsPanel } from "./persons-panel";
 import { AccountsPanel } from "./accounts-panel";
 import { StatusFilter } from "./status-filter";
+import { formatCurrency } from "@/lib/format";
 import type { AccountStat } from "./page";
 
 interface Institution {
@@ -106,13 +107,6 @@ export function AccountsTabs({ institutions, persons, accounts, accountStats }: 
       return sum + Math.abs(stat?.monthAmount ?? 0);
     }, 0);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-CA", {
-      style: "currency",
-      currency: "CAD",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // Filter data based on status
   const filteredInstitutions = institutions.filter((i) =>

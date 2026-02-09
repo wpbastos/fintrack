@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { buildResolveTransactionsPrompt } from "@/lib/prompts/resolve-transactions";
 import { aiLogger as log } from "@/lib/logger";
+import { callClaude } from "@/lib/ai-service";
 
 interface ClaudeSuggestion {
   transactionId: number;
@@ -234,112 +235,27 @@ export async function POST(request: Request) {
   }
 }
 
-interface ClaudeCLIResponse {
-  type: string;
-  subtype: string;
-  is_error: boolean;
-  duration_ms: number;
-  duration_api_ms: number;
-  num_turns: number;
-  result: string;
-  session_id: string;
-  total_cost_usd: number;
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-    cache_read_input_tokens: number;
-    cache_creation_input_tokens: number;
-  };
-}
-
-function extractJsonFromMarkdown(text: string): string {
-  // Remove markdown code blocks if present
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-  return text.trim();
-}
-
 async function callClaudeCLI(prompt: string): Promise<ClaudeResponse> {
-  const { spawn } = await import("child_process");
-
-  return new Promise((resolve, reject) => {
-    // Enable web search for researching merchants and employers
-    const child = spawn("claude", [
-      "--print",
-      "--output-format", "json",
-      "--allowedTools", "mcp__puppeteer__puppeteer_navigate,mcp__puppeteer__puppeteer_screenshot,WebSearch,WebFetch",
-      "-p", "-"
-    ], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    child.on("error", (err) => {
-      log.error("CLAUDE", `spawn error: ${err.message}`);
-      reject(new Error(`Failed to spawn claude: ${err.message}`));
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0) {
-        log.error("CLAUDE", `CLI failed with code ${code}`);
-        reject(new Error(`Claude CLI exited with code ${code}`));
-        return;
-      }
-
-      try {
-        // Parse the CLI response wrapper
-        const cliResponse: ClaudeCLIResponse = JSON.parse(stdout);
-
-        if (cliResponse.is_error) {
-          log.error("CLAUDE", cliResponse.result.substring(0, 200));
-          reject(new Error(cliResponse.result));
-          return;
-        }
-
-        // Extract JSON from markdown code blocks
-        const jsonContent = extractJsonFromMarkdown(cliResponse.result);
-
-        // Parse the actual response and add metadata
-        const parsed = JSON.parse(jsonContent);
-        const response: ClaudeResponse = {
-          suggestions: parsed.suggestions || [],
-          duration: cliResponse.duration_ms,
-          cost: cliResponse.total_cost_usd,
-          tokens: {
-            input: cliResponse.usage.input_tokens,
-            output: cliResponse.usage.output_tokens,
-          },
-        };
-        resolve(response);
-      } catch (parseError) {
-        log.error("CLAUDE", `Parse failed: ${parseError instanceof Error ? parseError.message : "Unknown"}`);
-        reject(new Error("Failed to parse Claude response"));
-      }
-    });
-
-    // Set timeout
-    const timeout = setTimeout(() => {
-      log.error("CLAUDE", "Timeout after 2 minutes");
-      child.kill();
-      reject(new Error("Claude CLI timeout"));
-    }, 120000);
-
-    child.on("close", () => clearTimeout(timeout));
-
-    // Write prompt to stdin and close
-    child.stdin.write(prompt);
-    child.stdin.end();
+  const result = await callClaude({
+    prompt,
+    allowedTools: "mcp__puppeteer__puppeteer_navigate,mcp__puppeteer__puppeteer_screenshot,WebSearch,WebFetch",
+    timeoutMs: 120000,
+    logLabel: "CLAUDE",
+    logger: log,
   });
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  const parsed = result.parsedJson as { suggestions?: ClaudeSuggestion[] };
+  return {
+    suggestions: parsed.suggestions || [],
+    duration: result.metrics.durationMs,
+    cost: result.metrics.costUsd,
+    tokens: {
+      input: result.metrics.inputTokens,
+      output: result.metrics.outputTokens,
+    },
+  };
 }

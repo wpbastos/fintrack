@@ -11,11 +11,18 @@ import { calculateBillingPeriod } from "@/lib/billing-cycle";
 
 export async function POST(request: Request) {
   try {
-    // Optional: Verify cron secret for security
-    const authHeader = request.headers.get("authorization");
+    // Verify cron secret for security
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      return NextResponse.json(
+        { error: "CRON_SECRET not configured" },
+        { status: 503 }
+      );
+    }
+
+    const authHeader = request.headers.get("authorization");
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

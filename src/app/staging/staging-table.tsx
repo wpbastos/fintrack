@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, Fragment, useTransition, useCallback, useMemo } from "react";
-import { ChevronDown, ChevronRight, Check, X, Sparkles, ArrowRightCircle, Trash2, Pencil, FileJson, Copy, Maximize2, Minimize2 } from "lucide-react";
+import { useState, useEffect, Fragment, useTransition, useMemo } from "react";
+import { ChevronDown, ChevronRight, Check, X, Sparkles, ArrowRightCircle, Trash2, Pencil, FileJson, Maximize2, Minimize2 } from "lucide-react";
 import {
   Tooltip,
   ResponsiveContainer,
@@ -31,6 +31,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { approveSuggestion, rejectSuggestion, approveAllSuggestions, rejectAllSuggestions, importBatchTransactions, unmatchTransaction, deleteImportBatch, updateStagingTransaction, getStagingLookupData } from "./actions";
 import { formatDate, formatCurrency } from "@/lib/format";
+import { JsonContentDialog } from "@/components/json-viewer";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface ClaudeSuggestion {
   transactionId: number;
@@ -327,7 +329,6 @@ function BatchAiResolveButton({
   transactionCount,
   aiStatus: initialAiStatus,
   aiStartedAt,
-  aiResult: initialAiResult,
   disabled = false,
   disabledReason,
 }: {
@@ -335,7 +336,6 @@ function BatchAiResolveButton({
   transactionCount: number;
   aiStatus: string;
   aiStartedAt: Date | null;
-  aiResult: string | null;
   disabled?: boolean;
   disabledReason?: string;
 }) {
@@ -583,12 +583,15 @@ function BatchImportButton({
 
 function BatchDeleteButton({ importId, fileName, disabled = false }: { importId: number; fileName: string; disabled?: boolean }) {
   const [isPending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent batch toggle
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (disabled) return;
-    if (!confirm(`Delete import "${fileName}" and all its transactions?`)) return;
+    setConfirmOpen(true);
+  };
 
+  const handleConfirm = () => {
     startTransition(async () => {
       const result = await deleteImportBatch(importId);
       if (result.success) {
@@ -600,199 +603,34 @@ function BatchDeleteButton({ importId, fileName, disabled = false }: { importId:
   };
 
   return (
-    <Button
-      size="icon"
-      variant="ghost"
-      className={`h-7 w-7 ${disabled ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950"}`}
-      onClick={handleDelete}
-      disabled={isPending || disabled}
-      title={disabled ? "Cannot delete imported batch" : "Delete import"}
-    >
-      <Trash2 className="w-3.5 h-3.5" />
-    </Button>
-  );
-}
-
-// JSON Line Component - renders a single line with proper gutter alignment
-function JsonLine({
-  level,
-  expandable = false,
-  expanded = false,
-  onToggle,
-  children
-}: {
-  level: number;
-  expandable?: boolean;
-  expanded?: boolean;
-  onToggle?: () => void;
-  children: React.ReactNode;
-}) {
-  const INDENT_SIZE = 20;
-  const GUTTER_WIDTH = 16;
-
-  return (
-    <div
-      className={`flex items-start leading-6 ${expandable ? "cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-700/50" : ""}`}
-      onClick={expandable ? onToggle : undefined}
-    >
-      <div
-        className="shrink-0 flex items-center justify-center h-6"
-        style={{ width: GUTTER_WIDTH, marginLeft: level * INDENT_SIZE }}
-      >
-        {expandable && (
-          expanded ? (
-            <ChevronDown className="h-3 w-3 text-slate-400" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-slate-400" />
-          )
-        )}
-      </div>
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-// Format a primitive value with appropriate styling
-function JsonValue({ value }: { value: unknown }) {
-  if (typeof value === "string") {
-    return <span className="text-amber-600 dark:text-amber-400">&quot;{value}&quot;</span>;
-  }
-  if (typeof value === "number") {
-    return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
-  }
-  if (typeof value === "boolean") {
-    return <span className="text-purple-600 dark:text-purple-400">{String(value)}</span>;
-  }
-  if (value === null) {
-    return <span className="text-slate-400 dark:text-slate-500">null</span>;
-  }
-  return <span>{String(value)}</span>;
-}
-
-// Collapsible JSON Node Component
-function JsonNode({ data, name, level = 0, defaultExpanded = true }: {
-  data: unknown;
-  name?: string;
-  level?: number;
-  defaultExpanded?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(defaultExpanded && level < 2);
-
-  const isObject = data !== null && typeof data === "object";
-  const isArray = Array.isArray(data);
-  const isEmpty = isObject && Object.keys(data as object).length === 0;
-
-  if (!isObject || data === null) {
-    return (
-      <JsonLine level={level}>
-        {name !== undefined && (
-          <>
-            <span className="text-rose-600 dark:text-rose-400">&quot;{name}&quot;</span>
-            <span className="text-slate-500">: </span>
-          </>
-        )}
-        <JsonValue value={data} />
-      </JsonLine>
-    );
-  }
-
-  const entries = Object.entries(data as object);
-  const bracketOpen = isArray ? "[" : "{";
-  const bracketClose = isArray ? "]" : "}";
-
-  if (isEmpty) {
-    return (
-      <JsonLine level={level}>
-        {name !== undefined && (
-          <>
-            <span className="text-rose-600 dark:text-rose-400">&quot;{name}&quot;</span>
-            <span className="text-slate-500">: </span>
-          </>
-        )}
-        <span className="text-slate-500">{bracketOpen}{bracketClose}</span>
-      </JsonLine>
-    );
-  }
-
-  return (
     <>
-      <JsonLine
-        level={level}
-        expandable
-        expanded={expanded}
-        onToggle={() => setExpanded(!expanded)}
+      <Button
+        size="icon"
+        variant="ghost"
+        className={`h-7 w-7 ${disabled ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950"}`}
+        onClick={handleClick}
+        disabled={isPending || disabled}
+        title={disabled ? "Cannot delete imported batch" : "Delete import"}
       >
-        {name !== undefined && (
-          <>
-            <span className="text-rose-600 dark:text-rose-400">&quot;{name}&quot;</span>
-            <span className="text-slate-500">: </span>
-          </>
-        )}
-        <span className="text-slate-500">{bracketOpen}</span>
-        {!expanded && (
-          <>
-            <span className="text-slate-400 ml-1">
-              {isArray ? `${entries.length} items` : `${entries.length} keys`}
-            </span>
-            <span className="text-slate-500 ml-1">{bracketClose}</span>
-          </>
-        )}
-      </JsonLine>
-
-      {expanded && (
-        <>
-          {entries.map(([key, value]) => (
-            <JsonNode
-              key={key}
-              data={value}
-              name={isArray ? undefined : key}
-              level={level + 1}
-              defaultExpanded={level < 1}
-            />
-          ))}
-          <JsonLine level={level}>
-            <span className="text-slate-500">{bracketClose}</span>
-          </JsonLine>
-        </>
-      )}
+        <Trash2 className="w-3.5 h-3.5" />
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete Import"
+        description={`Delete import "${fileName}" and all its transactions?`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirm}
+      />
     </>
   );
 }
 
 function ViewContentButton({ content, fileName }: { content: string | null; fileName?: string }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<"tree" | "raw">("tree");
-
-  const handleOpen = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setViewMode("tree");
-    setOpen(true);
-  };
-
-  const handleCopy = useCallback(() => {
-    if (!content) return;
-    let textToCopy = content;
-    try {
-      textToCopy = JSON.stringify(JSON.parse(content), null, 2);
-    } catch {
-      // Keep original
-    }
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [content]);
 
   if (!content) return null;
-
-  let parsedContent: unknown = null;
-  let formattedContent = content;
-  try {
-    parsedContent = JSON.parse(content);
-    formattedContent = JSON.stringify(parsedContent, null, 2);
-  } catch {
-    // Keep original if not valid JSON
-  }
 
   return (
     <>
@@ -800,88 +638,20 @@ function ViewContentButton({ content, fileName }: { content: string | null; file
         size="sm"
         variant="ghost"
         className="h-6 w-6 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-950"
-        onClick={handleOpen}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
         title="View JSON content"
       >
         <FileJson className="h-4 w-4" />
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            maxWidth: "56rem",
-            height: "85vh",
-            overflow: "hidden",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileJson className="h-5 w-5 text-indigo-600" />
-              Import Content
-            </DialogTitle>
-            <DialogDescription>{fileName || "Original JSON data from the import"}</DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2 border-b pb-2">
-            <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
-              <button
-                onClick={() => setViewMode("tree")}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === "tree"
-                    ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Tree View
-              </button>
-              <button
-                onClick={() => setViewMode("raw")}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === "raw"
-                    ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Raw JSON
-              </button>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 ml-auto"
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3 w-3 mr-1" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3 w-3 mr-1" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </div>
-          <div
-            style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
-            className="rounded-md bg-slate-50 dark:bg-slate-900 p-4"
-          >
-            {viewMode === "tree" && parsedContent !== null ? (
-              <div className="text-xs font-mono">
-                <JsonNode data={parsedContent} defaultExpanded={true} />
-              </div>
-            ) : (
-              <pre className="text-xs font-mono whitespace-pre">{formattedContent}</pre>
-            )}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <JsonContentDialog
+        content={content}
+        description={fileName || "Original JSON data from the import"}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
@@ -1344,26 +1114,32 @@ export function StagingTable({ transactions, batches, importedTransactions = [],
   };
 
   // Group staging transactions by batch
-  const transactionsByBatch = new Map<number, TransactionWithBalance[]>();
-  transactions.forEach((txn) => {
-    if (txn.importId) {
-      if (!transactionsByBatch.has(txn.importId)) {
-        transactionsByBatch.set(txn.importId, []);
+  const transactionsByBatch = useMemo(() => {
+    const map = new Map<number, TransactionWithBalance[]>();
+    transactions.forEach((txn) => {
+      if (txn.importId) {
+        if (!map.has(txn.importId)) {
+          map.set(txn.importId, []);
+        }
+        map.get(txn.importId)!.push(txn);
       }
-      transactionsByBatch.get(txn.importId)!.push(txn);
-    }
-  });
+    });
+    return map;
+  }, [transactions]);
 
   // Group imported transactions by batch
-  const importedByBatch = new Map<number, TransactionWithBalance[]>();
-  importedTransactions.forEach((txn) => {
-    if (txn.importId) {
-      if (!importedByBatch.has(txn.importId)) {
-        importedByBatch.set(txn.importId, []);
+  const importedByBatch = useMemo(() => {
+    const map = new Map<number, TransactionWithBalance[]>();
+    importedTransactions.forEach((txn) => {
+      if (txn.importId) {
+        if (!map.has(txn.importId)) {
+          map.set(txn.importId, []);
+        }
+        map.get(txn.importId)!.push(txn);
       }
-      importedByBatch.get(txn.importId)!.push(txn);
-    }
-  });
+    });
+    return map;
+  }, [importedTransactions]);
 
   // Filter batches based on all filters
   const filteredBatches = batches.filter((batch) => {
@@ -1390,12 +1166,6 @@ export function StagingTable({ transactions, batches, importedTransactions = [],
   const suggestedCount = transactions.filter(
     (t) => t.status === "suggested" && pendingBatchIds.has(t.importId ?? 0)
   ).length;
-
-  // Track batch numbers for display
-  const batchNumberMap = new Map<number, number>();
-  batches.forEach((batch, idx) => {
-    batchNumberMap.set(batch.importId, idx + 1);
-  });
 
   // Chart data: Category Group Distribution (from expense transactions only)
   // Note: Credit card transactions are normalized on import (signs flipped)
@@ -1663,7 +1433,6 @@ export function StagingTable({ transactions, batches, importedTransactions = [],
           </TableHeader>
           <TableBody>
             {filteredBatches.map((batch) => {
-              const batchNumber = batchNumberMap.get(batch.importId) ?? 1;
               const isExpanded = expandedBatches.has(batch.importId);
               const batchTransactions = transactionsByBatch.get(batch.importId) ?? [];
               const fileName = batch.fileName || `Import #${batch.importId}`;
@@ -1759,7 +1528,6 @@ export function StagingTable({ transactions, batches, importedTransactions = [],
                             transactionCount={batch.isFinalized ? batch.transactionCount : batchTransactions.length}
                             aiStatus={batch.aiStatus}
                             aiStartedAt={batch.aiStartedAt}
-                            aiResult={batch.aiResult}
                             disabled={aiDisabled || batch.isFinalized}
                             disabledReason={aiDisabledReason}
                           />

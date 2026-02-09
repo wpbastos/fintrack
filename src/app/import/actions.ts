@@ -7,10 +7,10 @@ import {
 } from "@/lib/prompts/extract-pdf";
 import { pdfExtractLogger as log } from "@/lib/logger";
 import { extractQueue } from "@/lib/extract-queue";
+import { callClaude } from "@/lib/ai-service";
 import { writeFile, unlink, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID, createHash } from "crypto";
-import { spawn } from "child_process";
 
 // Project-local temp directory for PDF processing
 const TEMP_DIR = join(process.cwd(), ".tmp", "pdf");
@@ -84,32 +84,6 @@ export interface JobStatusResult {
   error?: string;
 }
 
-interface ClaudeCLIResponse {
-  type: string;
-  subtype: string;
-  is_error: boolean;
-  duration_ms: number;
-  duration_api_ms: number;
-  num_turns: number;
-  result: string;
-  session_id: string;
-  total_cost_usd: number;
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-    cache_read_input_tokens: number;
-    cache_creation_input_tokens: number;
-  };
-}
-
-function extractJsonFromMarkdown(text: string): string {
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-  return text.trim();
-}
-
 async function callClaudeCLI(
   prompt: string,
   fileName: string,
@@ -118,81 +92,39 @@ async function callClaudeCLI(
   const startTime = Date.now();
   log.info("EXTRACT", `Starting: ${fileName} (${(pdfSize / 1024).toFixed(0)}KB)`);
 
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      "claude",
-      ["-p", "-", "--output-format", "json", "--allowedTools", "Read"],
-      { stdio: ["pipe", "pipe", "pipe"], cwd: process.cwd() }
-    );
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (data) => { stdout += data.toString(); });
-    child.stderr.on("data", (data) => { stderr += data.toString(); });
-
-    child.stdin.write(prompt);
-    child.stdin.end();
-
-    child.on("error", (err) => {
-      log.error("EXTRACT", `Failed to spawn: ${err.message}`);
-      reject(new Error(`Failed to spawn claude: ${err.message}`));
-    });
-
-    child.on("close", (code) => {
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-      if (code !== 0) {
-        log.error("EXTRACT", `Failed (${elapsed}s): ${stderr.substring(0, 200)}`);
-        reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
-        return;
-      }
-
-      try {
-        const cliResponse: ClaudeCLIResponse = JSON.parse(stdout);
-
-        if (cliResponse.is_error) {
-          log.error("EXTRACT", `Error: ${cliResponse.result.substring(0, 200)}`);
-          resolve({ success: false, error: cliResponse.result });
-          return;
-        }
-
-        const jsonContent = extractJsonFromMarkdown(cliResponse.result);
-        const data: ExtractedData = JSON.parse(jsonContent);
-        const txnCount = data.transactions?.length || 0;
-
-        log.info("EXTRACT", `Done: ${txnCount} txns, ${elapsed}s, $${cliResponse.total_cost_usd.toFixed(4)}, ${cliResponse.usage.input_tokens}+${cliResponse.usage.output_tokens} tokens`);
-
-        resolve({
-          success: true,
-          data,
-          duration: cliResponse.duration_ms,
-          cost: cliResponse.total_cost_usd,
-          tokens: {
-            input: cliResponse.usage.input_tokens,
-            output: cliResponse.usage.output_tokens,
-          },
-          pdfSizeBytes: pdfSize,
-          originalFile: fileName,
-        });
-      } catch (parseError) {
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        log.error("EXTRACT", `Parse failed (${elapsed}s): ${parseError instanceof Error ? parseError.message : "Unknown"}`);
-        resolve({
-          success: false,
-          error: `Failed to parse response: ${parseError instanceof Error ? parseError.message : "Unknown"}`,
-        });
-      }
-    });
-
-    const timeout = setTimeout(() => {
-      log.error("EXTRACT", "Timeout after 5 minutes");
-      child.kill();
-      reject(new Error("Claude CLI timeout"));
-    }, 300000);
-
-    child.on("close", () => clearTimeout(timeout));
+  const result = await callClaude({
+    prompt,
+    allowedTools: "Read",
+    timeoutMs: 300000,
+    cwd: process.cwd(),
+    logLabel: "EXTRACT",
+    logger: log,
   });
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  if (!result.success) {
+    log.error("EXTRACT", `Failed (${elapsed}s): ${result.error}`);
+    return { success: false, error: result.error };
+  }
+
+  const data = result.parsedJson as ExtractedData;
+  const txnCount = data.transactions?.length || 0;
+
+  log.info("EXTRACT", `Done: ${txnCount} txns, ${elapsed}s, $${result.metrics.costUsd.toFixed(4)}, ${result.metrics.inputTokens}+${result.metrics.outputTokens} tokens`);
+
+  return {
+    success: true,
+    data,
+    duration: result.metrics.durationMs,
+    cost: result.metrics.costUsd,
+    tokens: {
+      input: result.metrics.inputTokens,
+      output: result.metrics.outputTokens,
+    },
+    pdfSizeBytes: pdfSize,
+    originalFile: fileName,
+  };
 }
 
 /**

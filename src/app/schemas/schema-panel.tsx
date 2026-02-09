@@ -316,7 +316,7 @@ function JsonViewDialog({ content, title }: { content: string; title: string }) 
 export function SchemaPanel({ schemas, statusFilter }: SchemaPanelProps) {
   const [search, setSearch] = useState("");
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const filteredSchemas = schemas.filter(
     (s) =>
